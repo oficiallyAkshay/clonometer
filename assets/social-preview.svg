@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <rect width="1280" height="640" fill="#0d1117"/>
+  <text x="640" y="260" font-size="150" text-anchor="middle" dominant-baseline="central">📈</text>
+  <text x="640" y="410" font-size="72" font-family="system-ui, sans-serif" font-weight="700" fill="#f0f6fc" text-anchor="middle" dominant-baseline="central">clonometer</text>
+  <text x="640" y="480" font-size="30" font-family="system-ui, sans-serif" fill="#8b949e" text-anchor="middle" dominant-baseline="central">A lifetime clone count for any repository, in one badge.</text>
+</svg>
