@@ -1,0 +1,35 @@
+# The consumer workflow every other repository adds, unchanged except for
+# `uses: ./` in place of a pinned tag, since clonometer counts itself from
+# the tree it just checked out rather than from a published release.
+name: clonometer
+
+on:
+  schedule: [{cron: "17 3 * * *"}]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency: {group: clonometer}
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # uses: ./ needs the tree on disk, unlike a published `owner/repo@sha`
+      # reference, so this repository is the one consumer workflow that
+      # checks itself out first. No credentials are kept: the push in the
+      # publish step carries its own token, not this checkout's.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./
+        with:
+          # A fine-grained personal access token with Administration read
+          # and Contents write, scoped to this repository only, stored as
+          # the TRAFFIC_TOKEN secret. A workflow's own GITHUB_TOKEN cannot
+          # be granted Administration, which is where the traffic endpoints
+          # sit.
+          token: ${{ secrets.TRAFFIC_TOKEN }}
+          metrics: clones,views

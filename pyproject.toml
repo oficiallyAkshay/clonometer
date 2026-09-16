@@ -1,7 +1,7 @@
 [project]
 name = "clonometer"
 version = "0.1.0"
-description = "A lifetime clone count for any GitHub repository, in one badge."
+description = "A lifetime clone count for any repository, in a JSON file you can badge any way you like."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

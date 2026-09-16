@@ -1,0 +1,81 @@
+name: clonometer
+description: A lifetime clone count for any repository, in a JSON file you can badge any way you like.
+branding:
+  icon: trending-up
+  color: green
+
+inputs:
+  token:
+    description: >-
+      Fine-grained personal access token with Administration read and
+      Contents write on this repository. A workflow's own GITHUB_TOKEN
+      cannot be granted Administration, which is where the traffic
+      endpoints sit, so this has to be a token the owner creates.
+    required: true
+  branch:
+    description: Branch the ledger and numbers files are kept on.
+    required: false
+    default: badges
+  metrics:
+    description: Metrics to count, 'clones' or 'clones,views'.
+    required: false
+    default: clones
+
+runs:
+  using: composite
+  steps:
+    - name: count
+      shell: bash
+      env:
+        CLONOMETER_TOKEN: ${{ inputs.token }}
+        CLONOMETER_OUT: ${{ runner.temp }}/clonometer
+        CLONOMETER_BRANCH: ${{ inputs.branch }}
+        CLONOMETER_METRICS: ${{ inputs.metrics }}
+      run: |
+        # Belt and braces: the token is already a secret in the caller's
+        # workflow, but masking it here too means it never shows up even
+        # if something upstream forwarded it unmasked.
+        echo "::add-mask::${CLONOMETER_TOKEN}"
+        python3 "${GITHUB_ACTION_PATH}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}"
+
+    - name: publish
+      shell: bash
+      env:
+        CLONOMETER_TOKEN: ${{ inputs.token }}
+        CLONOMETER_OUT: ${{ runner.temp }}/clonometer
+        CLONOMETER_BRANCH: ${{ inputs.branch }}
+        CLONOMETER_REMOTE: ${{ github.server_url }}/${{ github.repository }}.git
+      run: |
+        echo "::add-mask::${CLONOMETER_TOKEN}"
+        set -euo pipefail
+
+        # A throwaway directory under RUNNER_TEMP, not the checkout: the
+        # storage branch has no history worth keeping, only the newest
+        # numbers, so every run starts an orphan branch from scratch.
+        work="$(mktemp -d "${RUNNER_TEMP}/clonometer-publish.XXXXXX")"
+        git init --quiet --initial-branch="${CLONOMETER_BRANCH}" "${work}"
+        git -C "${work}" config user.name 'github-actions[bot]'
+        git -C "${work}" config user.email \
+          '41898282+github-actions[bot]@users.noreply.github.com'
+
+        files=""
+        for source in "${CLONOMETER_OUT}"/*; do
+          name="$(basename "${source}")"
+          cp "${source}" "${work}/${name}"
+          git -C "${work}" add "${name}"
+          files="${files} ${name}"
+        done
+
+        git -C "${work}" commit --quiet \
+          -m "clonometer:${files} as of $(date -u +%Y-%m-%d)"
+
+        # Why a PAT and not GITHUB_TOKEN: the traffic endpoints sit behind
+        # Administration read, a permission a workflow token cannot hold.
+        # Why force push: the branch carries only the latest numbers, so
+        # each run's single commit replaces the one before it rather than
+        # accumulating a history nobody reads. The token travels as a
+        # basic-auth header on this one push, the same shape actions/checkout
+        # uses, so it never appears in the remote URL or in any log line.
+        auth="$(printf 'x-access-token:%s' "${CLONOMETER_TOKEN}" | base64 | tr -d '\n')"
+        git -C "${work}" -c http.extraheader="AUTHORIZATION: basic ${auth}" \
+          push --force --quiet "${CLONOMETER_REMOTE}" "HEAD:${CLONOMETER_BRANCH}"
