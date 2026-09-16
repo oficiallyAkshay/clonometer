@@ -110,10 +110,6 @@ def ledger(days: dict, *, since: str = TODAY, repo: str = REPO) -> dict:
     return {"schema": 1, "repo": repo, "since": since, "days": days}
 
 
-def not_found() -> urllib.error.HTTPError:
-    return urllib.error.HTTPError("https://api.github.com/x", 404, "Not Found", {}, None)
-
-
 def http_error(status: int) -> urllib.error.HTTPError:
     return urllib.error.HTTPError("https://api.github.com/x", status, "error", {}, None)
 
@@ -357,7 +353,7 @@ def test_read_ledger_decodes_the_base64_content(fake_http) -> None:
 
 
 def test_read_ledger_on_404_starts_an_empty_ledger_with_todays_since(fake_http) -> None:
-    fake_http.queue(not_found())
+    fake_http.queue(http_error(404))
     result = clonometer.read_ledger(
         clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token", "clones-ledger.json", TODAY
     )
@@ -436,7 +432,7 @@ def test_cli_read_only_never_calls_write_even_on_success(fake_http, token_env, m
     monkeypatch.setattr(clonometer, "write", lambda *a, **k: calls.append(a))
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 1, 1)]),
-        not_found(),
+        http_error(404),
     )
     assert clonometer.main([REPO]) == 0
     assert calls == []
@@ -452,7 +448,7 @@ def test_cli_write_mode_writes_exactly_the_expected_files_for_clones_only(
 ) -> None:
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 12, 9)], count=12, uniques=9),
-        not_found(),
+        http_error(404),
     )
     out_dir = tmp_path / "out"
     assert clonometer.main([REPO, "--write", str(out_dir)]) == 0
@@ -500,7 +496,7 @@ def test_cli_write_mode_writes_exactly_the_expected_files_for_clones_only(
 def test_cli_write_mode_creates_a_nested_directory_that_does_not_exist_yet(
     fake_http, token_env, tmp_path: Path
 ) -> None:
-    fake_http.queue(traffic_payload("clones", []), not_found())
+    fake_http.queue(traffic_payload("clones", []), http_error(404))
     out_dir = tmp_path / "nested" / "numbers"
     assert clonometer.main([REPO, "--write", str(out_dir)]) == 0
     assert out_dir.is_dir()
@@ -512,9 +508,9 @@ def test_cli_write_mode_with_both_metrics_writes_four_files_and_shares_the_code_
     """Views differs from clones only in endpoint, file names and the metric field."""
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 3, 2)], count=3),
-        not_found(),
+        http_error(404),
         traffic_payload("views", [("2026-09-17", 7, 5)], count=7),
-        not_found(),
+        http_error(404),
     )
     out_dir = tmp_path / "out"
     assert clonometer.main([REPO, "--metrics", "clones,views", "--write", str(out_dir)]) == 0
@@ -544,7 +540,7 @@ def test_cli_write_mode_takes_the_window_uniques_from_the_payload_not_the_ledger
 ) -> None:
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 5, 1)], count=5, uniques=99),
-        not_found(),
+        http_error(404),
     )
     out_dir = tmp_path / "out"
     assert clonometer.main([REPO, "--write", str(out_dir)]) == 0
@@ -604,7 +600,7 @@ def test_cli_falls_back_to_github_token_when_clonometer_token_is_unset(
 ) -> None:
     monkeypatch.delenv(clonometer.TOKEN_ENV, raising=False)
     monkeypatch.setenv(clonometer.FALLBACK_TOKEN_ENV, "a-github-actions-token")
-    fake_http.queue(traffic_payload("clones", []), not_found())
+    fake_http.queue(traffic_payload("clones", []), http_error(404))
     assert clonometer.main([REPO]) == 0
     assert fake_http.requests[0].get_header("Authorization") == "Bearer a-github-actions-token"
 
@@ -613,7 +609,7 @@ def test_cli_honours_a_clonometer_api_override(
     fake_http, monkeypatch: pytest.MonkeyPatch, token_env
 ) -> None:
     monkeypatch.setenv(clonometer.API_ROOT_ENV, "http://127.0.0.1:9999")
-    fake_http.queue(traffic_payload("clones", []), not_found())
+    fake_http.queue(traffic_payload("clones", []), http_error(404))
     assert clonometer.main([REPO]) == 0
     assert fake_http.requests[0].full_url.startswith("http://127.0.0.1:9999/")
 
@@ -675,7 +671,7 @@ def test_cli_write_mode_writes_nothing_when_a_later_metric_fails(
     """A failure on the second metric must not leave the first metric's files behind."""
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 1, 1)]),
-        not_found(),
+        http_error(404),
         http_error(403),
     )
     out_dir = tmp_path / "out"
@@ -713,7 +709,7 @@ def test_short_switches_to_millions_when_rounding_would_read_a_thousand_k() -> N
 def test_a_non_numeric_count_from_the_endpoint_is_one_line_not_a_traceback(
     fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    fake_http.queue(traffic_payload("clones", [("2026-09-17", "abc", 1)], count=5), not_found())
+    fake_http.queue(traffic_payload("clones", [("2026-09-17", "abc", 1)], count=5), http_error(404))
     assert clonometer.main([REPO, "--write", str(tmp_path / "out")]) == 1
     captured = capsys.readouterr()
     assert captured.err.count("\n") == 1 and "non-numeric count" in captured.err
@@ -724,7 +720,7 @@ def test_a_non_numeric_count_from_the_endpoint_is_one_line_not_a_traceback(
 def test_a_write_target_that_is_a_file_is_one_line_not_a_traceback(
     fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), not_found())
+    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
     target = tmp_path / "taken"
     target.write_text("a file, not a directory", encoding="utf-8")
     assert clonometer.main([REPO, "--write", str(target)]) == 1
@@ -746,6 +742,6 @@ def test_a_trailing_slash_on_the_api_root_does_not_double_the_slash(
     fake_http, token_env, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(clonometer.API_ROOT_ENV, "https://ghe.example/api/v3/")
-    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), not_found())
+    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
     assert clonometer.main([REPO]) == 0
     assert fake_http.requests[0].full_url.startswith("https://ghe.example/api/v3/repos/")
