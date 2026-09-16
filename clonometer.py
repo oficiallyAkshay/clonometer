@@ -37,7 +37,6 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -57,14 +56,6 @@ TIMEOUT_SECONDS = 30
 
 class ClonometerError(Exception):
     """A failure the caller prints in one line and exits on."""
-
-
-class _HTTPStatus(Exception):
-    """Internal: carries a non-2xx status code up out of ``_get_json``."""
-
-    def __init__(self, status: int) -> None:
-        super().__init__(status)
-        self.status = status
 
 
 def _get_json(url: str, token: str) -> object:
@@ -87,8 +78,9 @@ def _get_json(url: str, token: str) -> object:
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             body = response.read()
-    except urllib.error.HTTPError as error:
-        raise _HTTPStatus(error.code) from error
+    except urllib.error.HTTPError:
+        # Callers decide what a status means; the stdlib error carries it.
+        raise
     except urllib.error.URLError as error:
         raise ClonometerError(f"{url} could not be reached: {error.reason}") from error
     try:
@@ -117,14 +109,14 @@ def fetch_traffic(api_root: str, repo: str, token: str, metric: str) -> dict:
     url = f"{api_root}/repos/{repo}/traffic/{metric}?per=day"
     try:
         payload = _get_json(url, token)
-    except _HTTPStatus as error:
-        if error.status in (403, 404):
+    except urllib.error.HTTPError as error:
+        if error.code in (403, 404):
             raise ClonometerError(
-                f"the {metric} endpoint answered HTTP {error.status} for {repo}; "
+                f"the {metric} endpoint answered HTTP {error.code} for {repo}; "
                 f"{TOKEN_ENV} needs Administration read on this repository"
             ) from error
         raise ClonometerError(
-            f"the {metric} endpoint answered HTTP {error.status} for {repo}"
+            f"the {metric} endpoint answered HTTP {error.code} for {repo}"
         ) from error
     if not isinstance(payload, dict):
         raise ClonometerError(f"the {metric} endpoint answered with something other than an object")
@@ -146,11 +138,11 @@ def read_ledger(
     url = f"{api_root}/repos/{repo}/contents/{file_name}?ref={branch}"
     try:
         payload = _get_json(url, token)
-    except _HTTPStatus as error:
-        if error.status == 404:
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
             return {"schema": 1, "repo": repo, "since": today, "days": {}}
         raise ClonometerError(
-            f"could not read {file_name} from the {branch} branch: HTTP {error.status}"
+            f"could not read {file_name} from the {branch} branch: HTTP {error.code}"
         ) from error
     if not isinstance(payload, dict) or "content" not in payload:
         raise ClonometerError(
@@ -306,19 +298,6 @@ def parse_metrics(value: str) -> list[str]:
     raise ClonometerError(f"--metrics must be 'clones' or 'clones,views', got {value!r}")
 
 
-@dataclass
-class _Result:
-    """Everything computed for one metric, before anything is written."""
-
-    metric: str
-    window_count: int
-    window_uniques: int
-    total: int
-    since: str
-    numbers_doc: dict
-    ledger_doc: dict
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="clonometer",
@@ -341,12 +320,14 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _compute(args: argparse.Namespace, token: str, api_root: str, today: str) -> list[_Result]:
+def _compute(
+    args: argparse.Namespace, token: str, api_root: str, today: str
+) -> list[tuple[dict, dict]]:
     """Fetch, merge and total every requested metric before anything is written."""
     owner, _, name = args.repo.partition("/")
     if not owner or not name or "/" in name or any(c.isspace() for c in args.repo):
         raise ClonometerError(f"the repository must be given as owner/name, got {args.repo!r}")
-    results: list[_Result] = []
+    results: list[tuple[dict, dict]] = []
     for metric in parse_metrics(args.metrics):
         traffic = fetch_traffic(api_root, args.repo, token, metric)
         ledger_file = f"{metric}-ledger.json"
@@ -367,9 +348,7 @@ def _compute(args: argparse.Namespace, token: str, api_root: str, today: str) ->
             window_uniques=window_uniques,
             total=new_total,
         )
-        results.append(
-            _Result(metric, window_count, window_uniques, new_total, since, numbers_doc, merged)
-        )
+        results.append((numbers_doc, merged))
     return results
 
 
@@ -385,23 +364,21 @@ def main(argv: list[str] | None = None) -> int:
         results = _compute(args, token, api_root, today_utc())
         if args.write:
             out_dir = Path(args.write)
-            for result in results:
-                numbers_path, ledger_path = write(
-                    out_dir, result.metric, result.numbers_doc, result.ledger_doc
-                )
+            for doc, ledger_doc in results:
+                numbers_path, ledger_path = write(out_dir, doc["metric"], doc, ledger_doc)
                 print(
-                    f"{result.metric}: wrote {numbers_path} and {ledger_path}: "
-                    f"{result.window_count:,} (14d), {result.total:,} (all-time)"
+                    f"{doc['metric']}: wrote {numbers_path} and {ledger_path}: "
+                    f"{doc['window']['count']:,} (14d), {doc['total']:,} (all-time)"
                 )
     except ClonometerError as error:
         print(str(error), file=sys.stderr)
         return 1
 
     if not args.write:
-        for result in results:
+        for doc, _ in results:
             print(
-                f"{result.metric}: {result.window_count:,} (14d), {result.total:,} (all-time), "
-                f"since {result.since}"
+                f"{doc['metric']}: {doc['window']['count']:,} (14d), {doc['total']:,} (all-time), "
+                f"since {doc['since']}"
             )
     return 0
 
