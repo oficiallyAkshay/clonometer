@@ -174,6 +174,14 @@ def read_ledger(
     return ledger
 
 
+def _count(value: object, what: str) -> int:
+    """An API figure as an int, or a one-line refusal when it is not a number."""
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as error:
+        raise ClonometerError(f"the traffic endpoint answered with a non-numeric {what}") from error
+
+
 def merge(ledger: dict, rows: list[dict]) -> dict:
     """The ledger with every row from a fresh sample merged in.
 
@@ -189,8 +197,8 @@ def merge(ledger: dict, rows: list[dict]) -> dict:
         date = str(row.get("timestamp", ""))[:10]
         if not date:
             continue
-        count = int(row.get("count", 0))
-        uniques = int(row.get("uniques", 0))
+        count = _count(row.get("count", 0), "count")
+        uniques = _count(row.get("uniques", 0), "uniques")
         existing = days.get(date, {"count": 0, "uniques": 0})
         days[date] = {
             "count": max(existing.get("count", 0), count),
@@ -232,9 +240,9 @@ def short(n: int) -> str:
     """
     if n < 10_000:
         return f"{n:,}"
-    if n < 1_000_000:
-        value, suffix = n / 1_000, "k"
-    else:
+    value, suffix = n / 1_000, "k"
+    # Decided after rounding, so 999,950 reads as 1M rather than 1000k.
+    if round(value, 1) >= 1_000:
         value, suffix = n / 1_000_000, "M"
     text = f"{value:.1f}"
     if text.endswith(".0"):
@@ -274,15 +282,18 @@ def numbers(
 
 def write(out_dir: Path, metric: str, numbers_doc: dict, ledger_doc: dict) -> tuple[Path, Path]:
     """Write one metric's numbers and ledger files into out_dir, creating it if needed."""
-    out_dir.mkdir(parents=True, exist_ok=True)
     numbers_path = out_dir / f"{metric}.json"
     ledger_path = out_dir / f"{metric}-ledger.json"
-    numbers_path.write_text(
-        json.dumps(numbers_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    ledger_path.write_text(
-        json.dumps(ledger_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        numbers_path.write_text(
+            json.dumps(numbers_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        ledger_path.write_text(
+            json.dumps(ledger_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+    except OSError as error:
+        raise ClonometerError(f"could not write into {out_dir}: {error}") from error
     return numbers_path, ledger_path
 
 
@@ -332,6 +343,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _compute(args: argparse.Namespace, token: str, api_root: str, today: str) -> list[_Result]:
     """Fetch, merge and total every requested metric before anything is written."""
+    owner, _, name = args.repo.partition("/")
+    if not owner or not name or "/" in name or any(c.isspace() for c in args.repo):
+        raise ClonometerError(f"the repository must be given as owner/name, got {args.repo!r}")
     results: list[_Result] = []
     for metric in parse_metrics(args.metrics):
         traffic = fetch_traffic(api_root, args.repo, token, metric)
@@ -341,8 +355,8 @@ def _compute(args: argparse.Namespace, token: str, api_root: str, today: str) ->
         merged = merge(previous, traffic.get(metric) or [])
         new_total = lifetime(merged)
         guard(new_total, old_total)
-        window_count = int(traffic.get("count", 0))
-        window_uniques = int(traffic.get("uniques", 0))
+        window_count = _count(traffic.get("count", 0), "count")
+        window_uniques = _count(traffic.get("uniques", 0), "uniques")
         since = str(merged.get("since", today))
         numbers_doc = numbers(
             args.repo,
@@ -367,23 +381,23 @@ def main(argv: list[str] | None = None) -> int:
         )
         if not token:
             raise ClonometerError(f"{TOKEN_ENV} is not set, so clonometer has no token to use")
-        api_root = os.environ.get(API_ROOT_ENV, "").strip() or DEFAULT_API_ROOT
+        api_root = (os.environ.get(API_ROOT_ENV, "").strip() or DEFAULT_API_ROOT).rstrip("/")
         results = _compute(args, token, api_root, today_utc())
+        if args.write:
+            out_dir = Path(args.write)
+            for result in results:
+                numbers_path, ledger_path = write(
+                    out_dir, result.metric, result.numbers_doc, result.ledger_doc
+                )
+                print(
+                    f"{result.metric}: wrote {numbers_path} and {ledger_path}: "
+                    f"{result.window_count:,} (14d), {result.total:,} (all-time)"
+                )
     except ClonometerError as error:
         print(str(error), file=sys.stderr)
         return 1
 
-    if args.write:
-        out_dir = Path(args.write)
-        for result in results:
-            numbers_path, ledger_path = write(
-                out_dir, result.metric, result.numbers_doc, result.ledger_doc
-            )
-            print(
-                f"{result.metric}: wrote {numbers_path} and {ledger_path}: "
-                f"{result.window_count:,} (14d), {result.total:,} (all-time)"
-            )
-    else:
+    if not args.write:
         for result in results:
             print(
                 f"{result.metric}: {result.window_count:,} (14d), {result.total:,} (all-time), "

@@ -701,3 +701,51 @@ def test_cli_write_mode_writes_nothing_when_the_guard_refuses_a_shrinking_total(
     assert clonometer.main([REPO, "--write", str(out_dir)]) == 1
     assert not out_dir.exists()
     assert "smaller than the previous total" in capsys.readouterr().err
+
+
+def test_short_switches_to_millions_when_rounding_would_read_a_thousand_k() -> None:
+    """999,950 rounds to 1000.0k, which is 1M, never '1000k'."""
+    assert clonometer.short(999_949) == "999.9k"
+    assert clonometer.short(999_950) == "1M"
+    assert clonometer.short(999_999) == "1M"
+
+
+def test_a_non_numeric_count_from_the_endpoint_is_one_line_not_a_traceback(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_http.queue(traffic_payload("clones", [("2026-09-17", "abc", 1)], count=5), not_found())
+    assert clonometer.main([REPO, "--write", str(tmp_path / "out")]) == 1
+    captured = capsys.readouterr()
+    assert captured.err.count("\n") == 1 and "non-numeric count" in captured.err
+    assert captured.out == ""
+    assert not (tmp_path / "out").exists()
+
+
+def test_a_write_target_that_is_a_file_is_one_line_not_a_traceback(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), not_found())
+    target = tmp_path / "taken"
+    target.write_text("a file, not a directory", encoding="utf-8")
+    assert clonometer.main([REPO, "--write", str(target)]) == 1
+    captured = capsys.readouterr()
+    assert captured.err.count("\n") == 1 and "could not write into" in captured.err
+    assert captured.out == ""
+
+
+def test_a_repository_that_is_not_owner_slash_name_is_refused_before_any_request(
+    fake_http, token_env, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for bad in ("owner", "owner/", "/name", "owner/name/", "owner/na me"):
+        assert clonometer.main([bad]) == 1, bad
+        assert "owner/name" in capsys.readouterr().err
+    assert fake_http.requests == []
+
+
+def test_a_trailing_slash_on_the_api_root_does_not_double_the_slash(
+    fake_http, token_env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(clonometer.API_ROOT_ENV, "https://ghe.example/api/v3/")
+    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), not_found())
+    assert clonometer.main([REPO]) == 0
+    assert fake_http.requests[0].full_url.startswith("https://ghe.example/api/v3/repos/")
