@@ -6,6 +6,8 @@
   A lifetime clone count for any repository, in a JSON file you can badge any way you like.
 </p>
 
+It is for repositories whose install is a clone: agent skills, actions, templates, taps, dotfiles. A repository that ships as a package already has a better number in its registry's download badge.
+
 <p align="center">
   <a href=".github/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/oficiallyAkshay/clonometer/ci.yml?branch=main&logo=githubactions&logoColor=white&label=CI"></a>
   <a href="https://codecov.io/gh/oficiallyAkshay/clonometer"><img alt="coverage" src="https://img.shields.io/codecov/c/github/oficiallyAkshay/clonometer?logo=codecov&logoColor=white"></a>
