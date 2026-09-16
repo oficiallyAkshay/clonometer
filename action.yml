@@ -36,6 +36,7 @@ runs:
         # workflow, but masking it here too means it never shows up even
         # if something upstream forwarded it unmasked.
         echo "::add-mask::${CLONOMETER_TOKEN}"
+        set -euo pipefail
         python3 "${GITHUB_ACTION_PATH}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}"
 
     - name: publish
