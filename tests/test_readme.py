@@ -87,3 +87,9 @@ def test_the_mermaid_diagram_names_its_five_nodes() -> None:
     block = text[start:end]
     for node in ("cron", "traffic API", "ledger merge", "badges branch", "shields"):
         assert node in block, f"mermaid diagram is missing the {node!r} node"
+
+
+def test_the_readme_wears_its_own_badge_made_from_the_first_recipe() -> None:
+    """The repo's own badge is the recipe with this repository filled in, nothing else."""
+    own = RECIPE_URLS[0].replace("OWNER/REPO", "oficiallyAkshay/clonometer")
+    assert f'src="{own}"' in README.read_text(encoding="utf-8")
