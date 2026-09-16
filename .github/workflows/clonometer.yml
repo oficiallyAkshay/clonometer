@@ -15,6 +15,11 @@ jobs:
   count:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The checkout below needs to read this repository, which the empty
+    # top-level grant does not allow while the repository is private. A
+    # consumer using `owner/repo@sha` checks nothing out and keeps `{}`.
+    permissions:
+      contents: read
     steps:
       # uses: ./ needs the tree on disk, unlike a published `owner/repo@sha`
       # reference, so this repository is the one consumer workflow that
