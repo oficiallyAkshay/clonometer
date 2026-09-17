@@ -66,25 +66,90 @@ def test_action_yml_is_a_composite_action() -> None:
     assert _load_action()["runs"]["using"] == "composite"
 
 
-def test_action_yml_has_a_fetch_step_then_two_bash_steps() -> None:
+def test_action_yml_has_three_bash_steps_fetch_count_publish() -> None:
     steps = _steps()
     assert [step["name"] for step in steps] == ["fetch", "count", "publish"]
-    assert all(step["shell"] == "bash" for step in steps[1:])
+    assert all(step["shell"] == "bash" for step in steps)
 
 
-def test_the_fetch_step_clones_the_pinned_action_with_the_repo_wide_checkout_pin() -> None:
+def test_the_fetch_step_reads_the_action_context_through_env_and_uses_no_token() -> None:
     """The fetch is what makes a consumer run count as a clone of this repository."""
     fetch = _step("fetch")
-    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    pin = fetch["uses"].split("@")[1]
-    assert fetch["uses"].startswith("actions/checkout@")
-    assert len(pin) == 40 and f"actions/checkout@{pin}" in ci
-    assert fetch["if"] == "github.action_repository != ''"
-    assert fetch["with"]["repository"] == "${{ github.action_repository }}"
-    assert fetch["with"]["ref"] == "${{ github.action_ref }}"
-    assert fetch["with"]["path"] == ".clonometer"
-    assert fetch["with"]["persist-credentials"] is False
-    assert fetch["with"]["fetch-depth"] == 1
+    assert fetch["env"]["CLONOMETER_ACTION_REPOSITORY"] == "${{ github.action_repository }}"
+    assert fetch["env"]["CLONOMETER_ACTION_REF"] == "${{ github.action_ref }}"
+    assert fetch["env"]["CLONOMETER_SERVER"] == "${{ github.server_url }}"
+    assert "uses" not in fetch
+    assert "token" not in fetch["run"].lower()
+    assert "--depth 1" in fetch["run"]
+
+
+def _seed_action_repo(tmp_path: Path) -> tuple[Path, str]:
+    """A bare repository standing in for clonometer's own, holding a marker script."""
+    seed = tmp_path / "seed"
+    subprocess.run(["git", "init", "--quiet", "-b", "main", str(seed)], check=True)
+    (seed / "clonometer.py").write_text(
+        "import sys; print('ran from the fetched checkout'); sys.exit(0)\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "-C", str(seed), "add", "clonometer.py"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(seed),
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "seed",
+        ],
+        check=True,
+    )
+    server = tmp_path / "server"
+    bare = server / "owner" / "clonometer.git"
+    bare.parent.mkdir(parents=True)
+    subprocess.run(["git", "clone", "--quiet", "--bare", str(seed), str(bare)], check=True)
+    sha = subprocess.run(
+        ["git", "-C", str(seed), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    return server, sha
+
+
+def test_the_fetch_step_clones_the_pinned_commit_of_the_action_repository(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    server, sha = _seed_action_repo(tmp_path)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    env.update(
+        {
+            "GITHUB_WORKSPACE": str(workspace),
+            "CLONOMETER_ACTION_REPOSITORY": "owner/clonometer",
+            "CLONOMETER_ACTION_REF": sha,
+            "CLONOMETER_SERVER": f"file://{server}",
+        }
+    )
+    fetch = _run_step("fetch", env, tmp_path)
+    assert fetch.returncode == 0, fetch.stderr
+    assert (workspace / ".clonometer" / "clonometer.py").is_file()
+    assert f"at {sha}" in fetch.stdout
+    assert TOKEN not in fetch.stdout + fetch.stderr
+
+
+def test_the_fetch_step_does_nothing_for_a_local_action(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    env.update({"GITHUB_WORKSPACE": str(workspace), "CLONOMETER_ACTION_REPOSITORY": ""})
+    fetch = _run_step("fetch", env, tmp_path)
+    assert fetch.returncode == 0, fetch.stderr
+    assert "nothing to fetch" in fetch.stdout
+    assert not (workspace / ".clonometer").exists()
 
 
 def test_the_count_step_runs_the_fetched_checkout_when_there_is_one(
