@@ -1,6 +1,5 @@
-# The consumer workflow every other repository adds, unchanged except for
-# `uses: ./` in place of a pinned tag, since clonometer counts itself from
-# the tree it just checked out rather than from a published release.
+# The consumer workflow every other repository adds, unchanged except that
+# it follows main instead of a pinned commit, since this repository is main.
 name: clonometer
 
 on:
@@ -15,21 +14,12 @@ jobs:
   count:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # The checkout below needs to read this repository, which the empty
-    # top-level grant does not allow while the repository is private. A
-    # consumer using `owner/repo@sha` checks nothing out and keeps `{}`.
-    permissions:
-      contents: read
     steps:
-      # uses: ./ needs the tree on disk, unlike a published `owner/repo@sha`
-      # reference, so this repository is the one consumer workflow that
-      # checks itself out first. No credentials are kept: the push in the
-      # publish step carries its own token, not this checkout's.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: ./
+      # The action fetches this repository itself, at the commit named
+      # here, so the dogfood run takes the same path every consumer takes:
+      # no checkout, no permissions, one line. It follows main rather than
+      # a pinned commit because this repository is main.
+      - uses: oficiallyAkshay/clonometer@main
         with:
           # A fine-grained personal access token with Administration read
           # and Contents write, scoped to this repository only, stored as

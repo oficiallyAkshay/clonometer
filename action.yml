@@ -24,6 +24,22 @@ inputs:
 runs:
   using: composite
   steps:
+    # A runner downloads a `uses:` action as a tarball, which GitHub's
+    # traffic counts never see. Fetching this repository with git at the
+    # commit the consumer pinned makes every run of the action a clone of
+    # it, so clonometer's own badge measures its use. The script then runs
+    # from that checkout, so the fetch is what the run executes, not a
+    # decoration. A local `uses: ./` has no action repository and skips it.
+    - name: fetch
+      if: github.action_repository != ''
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: ${{ github.action_repository }}
+        ref: ${{ github.action_ref }}
+        path: .clonometer
+        persist-credentials: false
+        fetch-depth: 1
+
     - name: count
       shell: bash
       env:
@@ -45,7 +61,11 @@ runs:
           echo "the token input is empty; set it to a fine-grained personal access token with Administration read and Contents write on this repository, stored as a repository secret" >&2
           exit 1
         fi
-        python3 "${GITHUB_ACTION_PATH}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}"
+        # The fetched checkout when the fetch step ran, the action's own
+        # path otherwise (a local `uses: ./`).
+        home="${GITHUB_WORKSPACE:-.}/.clonometer"
+        [ -f "${home}/clonometer.py" ] || home="${GITHUB_ACTION_PATH}"
+        python3 "${home}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}"
         # The numbers on the run's summary page, so nobody has to open a log.
         if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
           python3 - "${CLONOMETER_OUT}" >> "${GITHUB_STEP_SUMMARY}" <<'PY'

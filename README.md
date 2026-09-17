@@ -97,3 +97,4 @@ Swap clones for views, point the query at any key in the file, and add any style
 - Uniques are per day and never added up.
 - A private repository keeps counting; the badge renders once it is public.
 - Run it daily with the concurrency group kept, since a gap past 13 days loses rows, and read the commit the install line pins before trusting it.
+- Every run of the action fetches this repository with git, so clonometer's own clone count measures runs of the action as much as people cloning it; uniques barely move, since runners share addresses.
