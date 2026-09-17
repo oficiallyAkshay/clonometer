@@ -22,9 +22,9 @@ SVG = ASSETS / "loop.svg"
 INK = "#768390"
 ACCENT = "#3fb950"
 DESCRIPTION = (
-    "GitHub keeps 14 days of traffic and then drops them; clonometer samples them once "
-    "a day into a ledger with a row for clones and a row for views, keeping every day; "
-    "you get two numbers files on a badges branch and any badge you like"
+    "GitHub keeps a 14-day window of traffic that slides forward and drops older days; "
+    "clonometer merges each day's sample into a ledger for clones and for views, appending "
+    "new days and keeping old ones; you get badges from the numbers files on your badges branch"
 )
 ZONE_W, ZONE_H, GAP, X0, Y0 = 270, 190, 25, 10, 20
 
@@ -33,70 +33,79 @@ def text(x: float, y: float, s: str, cls: str, anchor: str = "middle") -> str:
     return f'<text class="{cls}" x="{x}" y="{y}" text-anchor="{anchor}">{s}</text>'
 
 
-def window(x: float, y: float, days: int) -> list[str]:
-    """A strip of day bars, the oldest fading out: the window rolls off the left."""
+def window(x: float, y: float, days: int, gone: int) -> list[str]:
+    """Day bars inside a bracketed window, and ghost bars that have already fallen out."""
     parts = []
-    bar_w, gap, top = 12, 4, y + 62
-    heights = [22, 30, 18, 34, 26, 38, 20, 28, 36, 24, 32, 40, 30, 44]
-    for i in range(days):
+    bar_w, gap, base = 10, 4, y + 112
+    heights = [22, 30, 18, 34, 26, 38, 20, 28, 36, 24, 32, 40, 30, 44, 26, 34, 20]
+    left = x + 18
+    for i in range(gone + days):
         h = heights[i % len(heights)]
-        opacity = 0.15 + 0.85 * (i / max(days - 1, 1))
-        parts.append(
-            f'<rect x="{x + 22 + i * (bar_w + gap)}" y="{top + 50 - h}" width="{bar_w}" '
-            f'height="{h}" rx="2" fill="{INK}" fill-opacity="{opacity:.2f}"/>'
-        )
-    parts.append(f'<path class="g" d="M{x + 20} {top + 52}h{days * (bar_w + gap) + 2}"/>')
-    parts.append(text(x + 22, top + 68, "day 1", "s", "start"))
-    parts.append(text(x + 20 + days * (bar_w + gap), top + 68, "today", "s", "end"))
+        bx = left + i * (bar_w + gap)
+        if i < gone:
+            parts.append(
+                f'<rect x="{bx}" y="{base - h}" width="{bar_w}" height="{h}" rx="2" fill="none" '
+                f'stroke="{INK}" stroke-width="1" stroke-dasharray="3 2" stroke-opacity="0.6"/>'
+            )
+        else:
+            parts.append(
+                f'<rect x="{bx}" y="{base - h}" width="{bar_w}" height="{h}" rx="2" fill="{INK}" '
+                f'fill-opacity="0.85"/>'
+            )
+    wx0 = left + gone * (bar_w + gap) - 3
+    wx1 = left + (gone + days) * (bar_w + gap) - gap + 3
+    parts.append(f'<path class="g" d="M{wx0} {base - 58}v-6h{wx1 - wx0}v6"/>')
+    parts.append(text((wx0 + wx1) / 2, base - 68, "14 days", "s"))
+    parts.append(f'<path class="g" d="M{wx1 + 4} {base - 61}h12" marker-end="url(#a)"/>')
+    parts.append(text(wx1 + 22, base - 57, "daily", "xs", "start"))
+    parts.append(text(left + (gone * (bar_w + gap) - gap) / 2, base + 16, "gone", "xs"))
     return parts
 
 
-def ledger(x: float, y: float, rows: list[str], columns: int) -> list[str]:
-    """A ledger growing to the right: one row per metric, one cell per day kept."""
+def ledger(x: float, y: float, rows: list[str], kept: int, sample: int) -> list[str]:
+    """A ledger row per metric: kept days, the sample overlapping its tail, one new day added."""
     parts = []
-    cell, gap, left, top = 11, 3, x + 68, y + 66
+    cell, gap, left, top = 11, 3, x + 66, y + 62
+    total = kept + 1
     for r, name in enumerate(rows):
-        cy = top + r * 30
+        cy = top + r * 34
         parts.append(text(left - 10, cy + 10, name, "s", "end"))
-        for c in range(columns):
-            fill = ACCENT if c == columns - 1 else INK
-            op = "0.9" if c == columns - 1 else f"{0.25 + 0.5 * (c / columns):.2f}"
+        for c in range(total):
+            new = c == total - 1
+            fill = ACCENT if new else INK
             parts.append(
                 f'<rect x="{left + c * (cell + gap)}" y="{cy}" width="{cell}" height="{cell}" '
-                f'rx="2" fill="{fill}" fill-opacity="{op}"/>'
+                f'rx="2" fill="{fill}" fill-opacity="{0.9 if new else 0.55}"/>'
             )
-        parts.append(text(left + columns * (cell + gap) + 4, cy + 10, "+1", "s", "start"))
-    parts.append(text(x + ZONE_W / 2, top + 84, "sum of every day = all-time", "s"))
+        sx0 = left + (total - sample) * (cell + gap) - 2
+        sx1 = left + total * (cell + gap) - gap + 2
+        parts.append(
+            f'<rect x="{sx0}" y="{cy - 4}" width="{sx1 - sx0}" height="{cell + 8}" rx="3" '
+            f'fill="none" stroke="{ACCENT}" stroke-width="1.5" stroke-dasharray="4 3"/>'
+        )
+    parts.append(
+        text(left + (total - sample / 2) * (cell + gap) - 6, top - 10, "today's sample", "xs")
+    )
+    parts.append(text(left + (total - 1) * (cell + gap) + 5, top + 34 + 26, "+1 day", "xs"))
+    parts.append(text(x + ZONE_W / 2, top + 88, "sum of every day = all-time", "s"))
     return parts
 
 
-def result(x: float, y: float, branch: str, files: list[str], badges: list[list[str]]) -> list[str]:
-    """Two files on the branch, and the badges a consumer renders from them."""
+def result(x: float, y: float, badges: list[list[str]]) -> list[str]:
+    """The badges a consumer renders from the numbers files, and nothing else."""
     parts = []
-    top = y + 52
-    parts.append(
-        f'<g class="g"><circle cx="{x + 30}" cy="{top + 4}" r="4"/><circle cx="{x + 30}" '
-        f'cy="{top + 24}" r="4"/><path d="M{x + 30} {top + 8}v12"/></g>'
-    )
-    parts.append(text(x + 40, top + 18, branch, "s", "start"))
-    for i, name in enumerate(files):
-        fx = x + 110 + i * 78
-        parts.append(
-            f'<g class="g"><path d="M{fx} {top - 2}h12l6 6v20h-18z"/>'
-            f'<path d="M{fx + 12} {top - 2}v6h6"/></g>'
-        )
-        parts.append(text(fx + 9, top + 40, name, "xs"))
     for i, (label, value) in enumerate(badges):
-        by = top + 62 + i * 30
-        lw, vw = 56, 168
+        by = y + 62 + i * 44
+        lw, vw, h = 62, 178, 26
+        bx = x + (ZONE_W - lw - vw) / 2
         parts.append(
-            f'<rect x="{x + 28}" y="{by}" width="{lw}" height="20" rx="4" fill="{INK}"/>'
-            f'<rect x="{x + 28 + lw - 4}" y="{by}" width="{vw + 4}" height="20" rx="4" '
-            f'fill="{ACCENT}"/><rect x="{x + 28 + lw - 4}" y="{by}" width="6" height="20" '
+            f'<rect x="{bx}" y="{by}" width="{lw}" height="{h}" rx="5" fill="{INK}"/>'
+            f'<rect x="{bx + lw - 5}" y="{by}" width="{vw + 5}" height="{h}" rx="5" '
             f'fill="{ACCENT}"/>'
+            f'<rect x="{bx + lw - 5}" y="{by}" width="8" height="{h}" fill="{ACCENT}"/>'
         )
-        parts.append(text(x + 28 + lw / 2, by + 14, label, "badge"))
-        parts.append(text(x + 28 + lw + vw / 2, by + 14, value, "badge"))
+        parts.append(text(bx + lw / 2, by + 17, label, "badge"))
+        parts.append(text(bx + lw + vw / 2, by + 17, value, "badge"))
     return parts
 
 
@@ -107,7 +116,7 @@ def render(spec: dict) -> str:
         f'height="{vh}" role="img" aria-label="{DESCRIPTION}">',
         "<style>text{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,sans-serif;"
         f"fill:{INK}}}.t{{font-size:15px;font-weight:600}}.s{{font-size:13px}}"
-        ".xs{font-size:12px}.badge{font-size:11px;fill:#ffffff;font-weight:600}"
+        ".xs{font-size:12px}.badge{font-size:12px;fill:#ffffff;font-weight:600}"
         f".b{{fill:{INK};fill-opacity:.06;stroke:{INK};stroke-width:1.5}}"
         f".g{{fill:none;stroke:{INK};stroke-width:2;stroke-linecap:round;stroke-linejoin:round}}"
         "</style>",
@@ -123,11 +132,11 @@ def render(spec: dict) -> str:
         )
         parts.append(text(cx, Y0 + 28, zone["title"], "t"))
         if zone["kind"] == "window":
-            parts.extend(window(x, Y0, zone["days"]))
+            parts.extend(window(x, Y0, zone["days"], zone["gone"]))
         elif zone["kind"] == "ledger":
-            parts.extend(ledger(x, Y0, zone["rows"], zone["columns"]))
+            parts.extend(ledger(x, Y0, zone["rows"], zone["kept"], zone["sample"]))
         elif zone["kind"] == "result":
-            parts.extend(result(x, Y0, zone["branch"], zone["files"], zone["badges"]))
+            parts.extend(result(x, Y0, zone["badges"]))
         else:
             raise ValueError(f"unknown zone kind {zone['kind']!r}")
         parts.append(text(cx, Y0 + ZONE_H - 12, zone["caption"], "s"))

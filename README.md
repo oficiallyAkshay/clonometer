@@ -6,8 +6,6 @@
   A lifetime clone count for any repository, in a JSON file you can badge any way you like.
 </p>
 
-It is for repositories whose install is a clone: agent skills, actions, templates, taps, dotfiles. A repository that ships as a package already has a better number in its registry's download badge.
-
 <p align="center">
   <a href=".github/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/oficiallyAkshay/clonometer/ci.yml?branch=main&logo=githubactions&logoColor=white&label=CI"></a>
   <a href="https://codecov.io/gh/oficiallyAkshay/clonometer"><img alt="coverage" src="https://img.shields.io/codecov/c/github/oficiallyAkshay/clonometer?logo=codecov&logoColor=white"></a>
@@ -23,143 +21,86 @@ It is for repositories whose install is a clone: agent skills, actions, template
 
 <!-- once published, add: https://img.shields.io/npm/dm/clonometer?logo=npm&logoColor=white and https://img.shields.io/pypi/dm/clonometer?logo=pypi&logoColor=white -->
 
-<p align="center"><img alt="GitHub keeps 14 days of traffic and then drops them; clonometer samples them once a day into a ledger with a row for clones and a row for views, keeping every day; you get two numbers files on a badges branch and any badge you like" src="assets/loop.svg" width="900"></p>
+<p align="center"><img alt="GitHub keeps a 14-day window of traffic that slides forward and drops older days; clonometer merges each day's sample into a ledger for clones and for views, appending new days and keeping old ones; you get badges from the numbers files on your badges branch" src="assets/loop.svg" width="900"></p>
 
 <p align="center">
   <b><a href="https://github.com/oficiallyAkshay/clonometer/blob/badges/clones.json">See this repository's own numbers file</a></b>
 </p>
 
-GitHub only remembers the last 14 days of clone traffic, then the number resets to zero. clonometer samples that window on a schedule and keeps the total forever.
-
-```json
-{
-  "badge": "61 (7d) • 50.1k (all-time)",
-  "last7": 61,
-  "last7_short": "61",
-  "metric": "clones",
-  "repo": "owner/name",
-  "schema": 1,
-  "since": "2026-09-17",
-  "total": 50123,
-  "total_short": "50.1k",
-  "updated": "2026-10-01",
-  "window": {
-    "count": 123,
-    "days": 14,
-    "uniques": 45
-  },
-  "window_short": "123"
-}
-```
+GitHub only remembers the last 14 days of clone traffic, then the number is gone. clonometer samples that window once a day and keeps the total forever.
 
 ## Features
 
 | Feature | What it means |
 | --- | --- |
-| **Lifetime count** | Every clone since day one, not just the last 14 |
-| **Your badge, your way** | Label, colour, style and logo are yours; clonometer ships numbers |
 | **Honest numbers** | Never goes down, uniques are never summed across days |
-| **Stored on your repo** | The ledger lives on a branch of your own repo |
-| **Zero dependencies** | Standard library only, nothing to install or audit |
-| **Views optional** | Turn on page views alongside clones with one input |
+| **Your badge, your way** | Label, colour, style and logo are yours; clonometer ships numbers |
+| **Stored on your repo** | The ledger lives on a branch of your own repository, no gist, no other repo |
+| **Views too** | One input adds page views beside clones |
 
 ## Quick start
 
-```bash
-mkdir -p .github/workflows && curl -fsSL https://raw.githubusercontent.com/oficiallyAkshay/clonometer/main/.github/consumer-workflow.yml | sed "s|<sha>|$(git ls-remote https://github.com/oficiallyAkshay/clonometer.git HEAD | cut -c1-40)|" > .github/workflows/clonometer.yml
-```
+1. Write [the workflow](.github/consumer-workflow.yml), pinned to the current commit:
 
-That writes this workflow, pinned to the current commit:
+   ```bash
+   mkdir -p .github/workflows && curl -fsSL https://raw.githubusercontent.com/oficiallyAkshay/clonometer/main/.github/consumer-workflow.yml | sed "s|<sha>|$(git ls-remote https://github.com/oficiallyAkshay/clonometer.git HEAD | cut -c1-40)|" > .github/workflows/clonometer.yml
+   ```
 
-```yaml
-name: clonometer
-on:
-  schedule: [{cron: "17 3 * * *"}]
-  workflow_dispatch:
-permissions: {}
-concurrency: {group: clonometer}
-jobs:
-  count:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: oficiallyAkshay/clonometer@<sha>   # pinned commit
-        with:
-          token: ${{ secrets.TRAFFIC_TOKEN }}
-```
+2. Create [a fine-grained token](https://github.com/settings/personal-access-tokens/new) for this repository only, with Administration read and Contents write, and store it as the Actions secret TRAFFIC_TOKEN.
 
-Then create the token it uses. On [the fine-grained token page](https://github.com/settings/personal-access-tokens/new) pick this repository only, give it Administration read and Contents write, and store the value under Settings, Secrets and variables, Actions, under the name the workflow reads, TRAFFIC_TOKEN. Press Run workflow once on the Actions tab and the branch exists.
+3. Run the workflow once from the Actions tab, then pick a badge below.
 
-Then badge it however you like:
+## Badges
 
-```
-https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white
-https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white
-https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time
-```
+Every one of these reads this repository's own numbers file; swap in yours.
 
-The first two render as the badges at the top of this page; the third shows one key on its own, and any key in the file works there.
-
-## How it works
-
-1. A scheduled workflow runs once a day.
-2. It reads the 14 day traffic window from the GitHub API.
-3. Each day's counts merge into the ledger, keeping the higher value.
-4. The ledger and a small numbers file are pushed to the `badges` branch.
-5. Your README badge reads the numbers file through shields, or anything else that reads JSON.
+| Badge | Recipe, with OWNER/REPO in place of this repository |
+| --- | --- |
+| <a href="https://github.com/oficiallyAkshay/clonometer/blob/badges/clones.json"><img alt="Clones, seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"></a> | `https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white` |
+| <a href="https://github.com/oficiallyAkshay/clonometer/blob/badges/views.json"><img alt="Views, the same" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"></a> | `https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white` |
+| <a href="https://github.com/oficiallyAkshay/clonometer/blob/badges/clones.json"><img alt="All time only" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white"></a> | `https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white` |
+| <a href="https://github.com/oficiallyAkshay/clonometer/blob/badges/clones.json"><img alt="Last seven days only" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.last7_short&label=clones&suffix=%20this%20week&logo=github&logoColor=white"></a> | `https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.last7_short&label=clones&suffix=%20this%20week&logo=github&logoColor=white` |
+| <a href="https://github.com/oficiallyAkshay/clonometer/blob/badges/clones.json"><img alt="Any style shields has" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&style=for-the-badge&logo=github"></a> | `https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.badge&label=clones&style=for-the-badge&logo=github` |
+| <a href="https://github.com/oficiallyAkshay/clonometer/blob/badges/clones.json"><img alt="Any colour" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&color=6f42c1&logo=github&logoColor=white"></a> | `https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.badge&label=clones&color=6f42c1&logo=github&logoColor=white` |
 
 ## Configuration and security
 
 | Input | Default | Meaning |
 | --- | --- | --- |
-| `token` | required | Fine-grained PAT with Administration read and Contents write on this repository |
-| `branch` | `badges` | Orphan storage branch |
+| `token` | required | Fine-grained token with Administration read and Contents write on this repository |
+| `branch` | `badges` | Storage branch, always one commit, never your default branch |
 | `metrics` | `clones` | `clones` or `clones,views` |
 
-### What leaves your machine: one authenticated request to api.github.com and one push to your own repository, nothing else
+### What leaves your machine
 
 | Concern | What actually happens | The guard |
 | --- | --- | --- |
-| Reading traffic | The action reads the clones endpoint with the token you provide | A workflow token cannot read traffic, so `GITHUB_TOKEN` is never used here |
-| The push | One commit lands on the storage branch of your own repository | The branch is force pushed, so it never grows past that one commit |
-| The token | Sits in your repository's secrets | Sent only to `api.github.com` and `github.com`, never written to a log |
+| Where the token goes | One request to the GitHub API and one push to your own repository, nothing else | Redirects are refused, plain http is refused, the token is never in a URL or a log |
+| Reading traffic | The action reads the traffic endpoint with the token you provide | A workflow token cannot read traffic, so it is never used |
+| The push | One commit lands on the storage branch of your own repository | The default branch is refused, the branch is force pushed to one commit |
 | Dependencies | None at runtime | Standard library only, nothing to resolve or audit |
 | This repo leaking data | No data belonging to anyone is in this repository | A prose gate and a secrets scan run on every commit in CI |
 | Your badge | Shields fetches a public raw file from your storage branch | The file carries counts only, no identity in it |
 
-## Local check
-
-Once published, the same script prints the numbers for any repository your token can read traffic on, and writes nothing.
-
-| Command | What it prints |
-| --- | --- |
-| `uvx --from git+https://github.com/oficiallyAkshay/clonometer clonometer owner/name` | `clones: 61 (7d) • 50.1k (all-time), 123 in the last 14 days, since 2026-09-17` |
-| `pipx run clonometer owner/name` | The same, once the PyPI package exists |
-| `npx clonometer owner/name` | The same, once the npm package exists |
-
 ## How it compares
 
-| | Copy-paste workflow templates | Central stats repositories | Registry download badges | clonometer |
-| --- | --- | --- | --- | --- |
-| Lifetime count | No, 14 days only | Yes | No | Yes |
-| One line in a workflow | No, paste the workflow yourself | No | Yes | Yes |
-| Data lives with the repo | Yes | No | No | Yes |
-| Badge shape is yours | No | No | No | Yes |
-| Needs an extra repo or gist | No | Yes | No | No |
-| Counts views too | No | Sometimes | No | Yes |
-
-Prior art: [MShawon/github-clone-count-badge](https://github.com/MShawon/github-clone-count-badge) copies clones into a gist with a workflow template, and [jgehrcke/github-repo-stats](https://github.com/jgehrcke/github-repo-stats) reports into a central stats repository.
+| | [github-clone-count-badge](https://github.com/MShawon/github-clone-count-badge) | [github-repo-stats](https://github.com/jgehrcke/github-repo-stats) | clonometer |
+| --- | --- | --- | --- |
+| Lifetime count | Yes | Yes | Yes |
+| One line in a workflow | No, paste its workflow | Yes | Yes |
+| Where the data lives | A gist | A data branch of whichever repository runs it, this one by default | A branch of this repository |
+| What you get | One badge | Reports and charts | Numbers files, any badge |
+| Counts views too | No | Yes | Yes |
+| Token needs | Traffic, plus gist write | Traffic, plus push to the repository that runs it | Traffic, plus push to this repository |
 
 ## Limits
 
 - Counting starts the day you enable it, plus the 14 days GitHub still had; nothing older is recoverable.
-- Clones include bots and CI.
+- Clones include bots and CI, and GitHub's figures arrive about a day late.
 - Uniques are per day and never added up.
-- A private repo keeps counting, but the badge renders only once the repo is public.
-- A PAT is required because a workflow token cannot read traffic.
-- Run it daily; anything past 13 days loses rows.
-- GitHub's traffic figures arrive about a day late, and shields caches a badge for a few minutes.
+- A private repository keeps counting, but the badge renders only once it is public.
 - A day GitHub later revises downwards keeps its highest sample, so the total can only overstate, never understate.
-- Keep the concurrency group in the workflow; two runs at once would race for the branch.
+- Run it daily and keep the concurrency group; past 13 days rows are lost, and two runs at once would race.
 - The install line pins whatever commit main is at that moment; read it before trusting it.
 
 ## For agents
@@ -169,19 +110,20 @@ Prior art: [MShawon/github-clone-count-badge](https://github.com/MShawon/github-
 | `schema` | int | Always `1` |
 | `repo` | string | `owner/name` the numbers belong to |
 | `metric` | string | `clones` or `views` |
-| `since` | date | The day the ledger started, UTC |
+| `since` | date | The earliest day in the ledger, UTC |
 | `updated` | date | The day this file was written, UTC |
 | `window.days` | int | Always `14`, the size of GitHub's window |
 | `window.count` | int | GitHub's own count for the window, as reported this run |
 | `window.uniques` | int | GitHub's own uniques for the window |
-| `last7` | int | Sum of the ledger's counts over the last seven days, so it never goes down |
-| `last7_short` | string | `last7` in the short form |
-| `total` | int | Sum of every day's count in the ledger |
-| `total_short` | string | `total` as `1,234`, `12.3k` or `1.2M` |
+| `last7`, `last7_short` | int, string | Sum of the ledger's counts over the last seven days, so it never goes down, and its short form |
+| `total`, `total_short` | int, string | Sum of every day's count in the ledger, and its short form: `1,234`, `12.3k`, `1.2M` |
 | `window_short` | string | `window.count` in the same short form |
 | `badge` | string | Seven days, a bullet, all time, in short form, ready for one badge |
 
-Ledger, one per metric beside its numbers file (the views pair appears only when views are on):
+| File on the storage branch | Holds |
+| --- | --- |
+| `clones.json`, `clones-ledger.json` | The numbers file above and its ledger |
+| `views.json`, `views-ledger.json` | The same for views, when views are on |
 
 ```json
 {"schema": 1, "repo": "owner/name", "since": "2026-09-17", "days": {"2026-09-17": {"count": 12, "uniques": 9}}}
@@ -191,13 +133,13 @@ Merge: each day's fields become the larger of the ledger's value and the new one
 
 ```
 clonometer OWNER/NAME [--write DIR] [--branch badges] [--metrics clones|clones,views]
+uvx --from git+https://github.com/oficiallyAkshay/clonometer clonometer owner/name
 ```
 
 | Variable or exit | Meaning |
 | --- | --- |
-| `CLONOMETER_TOKEN` | The token; `GITHUB_TOKEN` is read when it is unset |
-| `CLONOMETER_API` | API root override for tests, default `https://api.github.com` |
-| exit `0` | Numbers printed, or files written |
-| exit `1` | One line on stderr, nothing written |
+| `CLONOMETER_TOKEN` | The token; `GITHUB_TOKEN` is read when it is unset and can never work |
+| `CLONOMETER_API` | API root override for tests, https only, default `https://api.github.com` |
+| exit `0` or `1` | Numbers printed or files written, read-only without `--write`; or one line on stderr and nothing written |
 
 What CI runs and the test plan a change must satisfy: [CONTRIBUTING](.github/CONTRIBUTING.md).

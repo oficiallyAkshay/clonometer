@@ -1,71 +1,70 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 230" width="900" height="230" role="img" aria-label="GitHub keeps 14 days of traffic and then drops them; clonometer samples them once a day into a ledger with a row for clones and a row for views, keeping every day; you get two numbers files on a badges branch and any badge you like">
-<style>text{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,sans-serif;fill:#768390}.t{font-size:15px;font-weight:600}.s{font-size:13px}.xs{font-size:12px}.badge{font-size:11px;fill:#ffffff;font-weight:600}.b{fill:#768390;fill-opacity:.06;stroke:#768390;stroke-width:1.5}.g{fill:none;stroke:#768390;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}</style>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 230" width="900" height="230" role="img" aria-label="GitHub keeps a 14-day window of traffic that slides forward and drops older days; clonometer merges each day's sample into a ledger for clones and for views, appending new days and keeping old ones; you get badges from the numbers files on your badges branch">
+<style>text{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,sans-serif;fill:#768390}.t{font-size:15px;font-weight:600}.s{font-size:13px}.xs{font-size:12px}.badge{font-size:12px;fill:#ffffff;font-weight:600}.b{fill:#768390;fill-opacity:.06;stroke:#768390;stroke-width:1.5}.g{fill:none;stroke:#768390;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}</style>
 <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#768390"/></marker></defs>
 <rect class="b" x="10" y="20" width="270" height="190" rx="10"/>
 <text class="t" x="145.0" y="48" text-anchor="middle">What GitHub keeps</text>
-<rect x="32" y="110" width="12" height="22" rx="2" fill="#768390" fill-opacity="0.15"/>
-<rect x="48" y="102" width="12" height="30" rx="2" fill="#768390" fill-opacity="0.22"/>
-<rect x="64" y="114" width="12" height="18" rx="2" fill="#768390" fill-opacity="0.28"/>
-<rect x="80" y="98" width="12" height="34" rx="2" fill="#768390" fill-opacity="0.35"/>
-<rect x="96" y="106" width="12" height="26" rx="2" fill="#768390" fill-opacity="0.41"/>
-<rect x="112" y="94" width="12" height="38" rx="2" fill="#768390" fill-opacity="0.48"/>
-<rect x="128" y="112" width="12" height="20" rx="2" fill="#768390" fill-opacity="0.54"/>
-<rect x="144" y="104" width="12" height="28" rx="2" fill="#768390" fill-opacity="0.61"/>
-<rect x="160" y="96" width="12" height="36" rx="2" fill="#768390" fill-opacity="0.67"/>
-<rect x="176" y="108" width="12" height="24" rx="2" fill="#768390" fill-opacity="0.74"/>
-<rect x="192" y="100" width="12" height="32" rx="2" fill="#768390" fill-opacity="0.80"/>
-<rect x="208" y="92" width="12" height="40" rx="2" fill="#768390" fill-opacity="0.87"/>
-<rect x="224" y="102" width="12" height="30" rx="2" fill="#768390" fill-opacity="0.93"/>
-<rect x="240" y="88" width="12" height="44" rx="2" fill="#768390" fill-opacity="1.00"/>
-<path class="g" d="M30 134h226"/>
-<text class="s" x="32" y="150" text-anchor="start">day 1</text>
-<text class="s" x="254" y="150" text-anchor="end">today</text>
-<text class="s" x="145.0" y="198" text-anchor="middle">14 days, then gone</text>
+<rect x="28" y="110" width="10" height="22" rx="2" fill="none" stroke="#768390" stroke-width="1" stroke-dasharray="3 2" stroke-opacity="0.6"/>
+<rect x="42" y="102" width="10" height="30" rx="2" fill="none" stroke="#768390" stroke-width="1" stroke-dasharray="3 2" stroke-opacity="0.6"/>
+<rect x="56" y="114" width="10" height="18" rx="2" fill="none" stroke="#768390" stroke-width="1" stroke-dasharray="3 2" stroke-opacity="0.6"/>
+<rect x="70" y="98" width="10" height="34" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="84" y="106" width="10" height="26" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="98" y="94" width="10" height="38" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="112" y="112" width="10" height="20" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="126" y="104" width="10" height="28" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="140" y="96" width="10" height="36" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="154" y="108" width="10" height="24" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="168" y="100" width="10" height="32" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="182" y="92" width="10" height="40" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="196" y="102" width="10" height="30" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="210" y="88" width="10" height="44" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="224" y="106" width="10" height="26" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="238" y="98" width="10" height="34" rx="2" fill="#768390" fill-opacity="0.85"/>
+<rect x="252" y="112" width="10" height="20" rx="2" fill="#768390" fill-opacity="0.85"/>
+<path class="g" d="M67 74v-6h198v6"/>
+<text class="s" x="166.0" y="64" text-anchor="middle">14 days</text>
+<path class="g" d="M269 71h12" marker-end="url(#a)"/>
+<text class="xs" x="287" y="75" text-anchor="start">daily</text>
+<text class="xs" x="47.0" y="148" text-anchor="middle">gone</text>
+<text class="s" x="145.0" y="198" text-anchor="middle">days slide out and are gone</text>
 <path class="g" d="M283 115.0h18" marker-end="url(#a)"/>
 <rect class="b" x="305" y="20" width="270" height="190" rx="10"/>
 <text class="t" x="440.0" y="48" text-anchor="middle">What clonometer does, once a day</text>
-<text class="s" x="363" y="96" text-anchor="end">clones</text>
-<rect x="373" y="86" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.25"/>
-<rect x="387" y="86" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.30"/>
-<rect x="401" y="86" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.34"/>
-<rect x="415" y="86" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.39"/>
-<rect x="429" y="86" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.43"/>
-<rect x="443" y="86" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.48"/>
-<rect x="457" y="86" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.52"/>
-<rect x="471" y="86" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.57"/>
-<rect x="485" y="86" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.61"/>
-<rect x="499" y="86" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.66"/>
-<rect x="513" y="86" width="11" height="11" rx="2" fill="#3fb950" fill-opacity="0.9"/>
-<text class="s" x="531" y="96" text-anchor="start">+1</text>
-<text class="s" x="363" y="126" text-anchor="end">views</text>
-<rect x="373" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.25"/>
-<rect x="387" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.30"/>
-<rect x="401" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.34"/>
-<rect x="415" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.39"/>
-<rect x="429" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.43"/>
-<rect x="443" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.48"/>
-<rect x="457" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.52"/>
-<rect x="471" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.57"/>
-<rect x="485" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.61"/>
-<rect x="499" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.66"/>
-<rect x="513" y="116" width="11" height="11" rx="2" fill="#3fb950" fill-opacity="0.9"/>
-<text class="s" x="531" y="126" text-anchor="start">+1</text>
+<text class="s" x="361" y="92" text-anchor="end">clones</text>
+<rect x="371" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="385" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="399" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="413" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="427" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="441" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="455" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="469" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="483" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="497" y="82" width="11" height="11" rx="2" fill="#3fb950" fill-opacity="0.9"/>
+<rect x="439" y="78" width="71" height="19" rx="3" fill="none" stroke="#3fb950" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text class="s" x="361" y="126" text-anchor="end">views</text>
+<rect x="371" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="385" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="399" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="413" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="427" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="441" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="455" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="469" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="483" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
+<rect x="497" y="116" width="11" height="11" rx="2" fill="#3fb950" fill-opacity="0.9"/>
+<rect x="439" y="112" width="71" height="19" rx="3" fill="none" stroke="#3fb950" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text class="xs" x="470.0" y="72" text-anchor="middle">today's sample</text>
+<text class="xs" x="502" y="142" text-anchor="middle">+1 day</text>
 <text class="s" x="440.0" y="170" text-anchor="middle">sum of every day = all-time</text>
-<text class="s" x="440.0" y="198" text-anchor="middle">every day kept, never lost</text>
+<text class="s" x="440.0" y="198" text-anchor="middle">new days appended, old days kept</text>
 <path class="g" d="M578 115.0h18" marker-end="url(#a)"/>
 <rect class="b" x="600" y="20" width="270" height="190" rx="10"/>
 <text class="t" x="735.0" y="48" text-anchor="middle">What you get</text>
-<g class="g"><circle cx="630" cy="76" r="4"/><circle cx="630" cy="96" r="4"/><path d="M630 80v12"/></g>
-<text class="s" x="640" y="90" text-anchor="start">badges</text>
-<g class="g"><path d="M710 70h12l6 6v20h-18z"/><path d="M722 70v6h6"/></g>
-<text class="xs" x="719" y="112" text-anchor="middle">clones.json</text>
-<g class="g"><path d="M788 70h12l6 6v20h-18z"/><path d="M800 70v6h6"/></g>
-<text class="xs" x="797" y="112" text-anchor="middle">views.json</text>
-<rect x="628" y="134" width="56" height="20" rx="4" fill="#768390"/><rect x="680" y="134" width="172" height="20" rx="4" fill="#3fb950"/><rect x="680" y="134" width="6" height="20" fill="#3fb950"/>
-<text class="badge" x="656.0" y="148" text-anchor="middle">clones</text>
-<text class="badge" x="768.0" y="148" text-anchor="middle">61 (7d) • 50.1k (all-time)</text>
-<rect x="628" y="164" width="56" height="20" rx="4" fill="#768390"/><rect x="680" y="164" width="172" height="20" rx="4" fill="#3fb950"/><rect x="680" y="164" width="6" height="20" fill="#3fb950"/>
-<text class="badge" x="656.0" y="178" text-anchor="middle">views</text>
-<text class="badge" x="768.0" y="178" text-anchor="middle">210 (7d) • 98k (all-time)</text>
-<text class="s" x="735.0" y="198" text-anchor="middle">any badge, any style</text>
+<rect x="615.0" y="82" width="62" height="26" rx="5" fill="#768390"/><rect x="672.0" y="82" width="183" height="26" rx="5" fill="#3fb950"/><rect x="672.0" y="82" width="8" height="26" fill="#3fb950"/>
+<text class="badge" x="646.0" y="99" text-anchor="middle">clones</text>
+<text class="badge" x="766.0" y="99" text-anchor="middle">61 (7d) • 50.1k (all-time)</text>
+<rect x="615.0" y="126" width="62" height="26" rx="5" fill="#768390"/><rect x="672.0" y="126" width="183" height="26" rx="5" fill="#3fb950"/><rect x="672.0" y="126" width="8" height="26" fill="#3fb950"/>
+<text class="badge" x="646.0" y="143" text-anchor="middle">views</text>
+<text class="badge" x="766.0" y="143" text-anchor="middle">210 (7d) • 98k (all-time)</text>
+<text class="s" x="735.0" y="198" text-anchor="middle">read from your badges branch</text>
 </svg>
