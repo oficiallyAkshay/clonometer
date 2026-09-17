@@ -29,16 +29,29 @@ runs:
     # commit the consumer pinned makes every run of the action a clone of
     # it, so clonometer's own badge measures its use. The script then runs
     # from that checkout, so the fetch is what the run executes, not a
-    # decoration. A local `uses: ./` has no action repository and skips it.
+    # decoration. Plain git over https, no token: clonometer is public. A
+    # local `uses: ./` has no action repository and skips it. The context
+    # arrives through env because a composite action's own context is not
+    # visible to a nested action's inputs.
     - name: fetch
-      if: github.action_repository != ''
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        repository: ${{ github.action_repository }}
-        ref: ${{ github.action_ref }}
-        path: .clonometer
-        persist-credentials: false
-        fetch-depth: 1
+      shell: bash
+      env:
+        CLONOMETER_ACTION_REPOSITORY: ${{ github.action_repository }}
+        CLONOMETER_ACTION_REF: ${{ github.action_ref }}
+        CLONOMETER_SERVER: ${{ github.server_url }}
+      run: |
+        set -euo pipefail
+        if [ -z "${CLONOMETER_ACTION_REPOSITORY:-}" ]; then
+          echo "local action, nothing to fetch"
+          exit 0
+        fi
+        dir="${GITHUB_WORKSPACE}/.clonometer"
+        rm -rf "${dir}"
+        git init --quiet "${dir}"
+        git -C "${dir}" fetch --quiet --depth 1 \
+          "${CLONOMETER_SERVER}/${CLONOMETER_ACTION_REPOSITORY}.git" "${CLONOMETER_ACTION_REF}"
+        git -C "${dir}" checkout --quiet FETCH_HEAD
+        echo "fetched ${CLONOMETER_ACTION_REPOSITORY} at ${CLONOMETER_ACTION_REF}"
 
     - name: count
       shell: bash
