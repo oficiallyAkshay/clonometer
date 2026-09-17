@@ -229,6 +229,7 @@ def test_numbers_matches_the_contract_shape_exactly() -> None:
         window_count=123,
         window_uniques=45,
         total=50123,
+        last7=61,
     )
     assert document == {
         "schema": 1,
@@ -237,18 +238,44 @@ def test_numbers_matches_the_contract_shape_exactly() -> None:
         "since": TODAY,
         "updated": "2026-10-01",
         "window": {"days": 14, "count": 123, "uniques": 45},
+        "last7": 61,
+        "last7_short": "61",
         "total": 50123,
         "total_short": "50.1k",
         "window_short": "123",
+        "badge": "61 (7d) " + chr(0x2022) + " 50.1k (all-time)",
     }
 
 
 def test_numbers_short_forms_use_the_same_rules_as_short() -> None:
     document = clonometer.numbers(
-        REPO, "views", since=TODAY, updated=TODAY, window_count=10000, window_uniques=1, total=999
+        REPO,
+        "views",
+        since=TODAY,
+        updated=TODAY,
+        window_count=10000,
+        window_uniques=1,
+        total=999,
+        last7=12345,
     )
     assert document["window_short"] == "10k"
     assert document["total_short"] == "999"
+    assert document["last7_short"] == "12.3k"
+    assert document["badge"] == "12.3k (7d) " + chr(0x2022) + " 999 (all-time)"
+
+
+def test_recent_sums_counts_over_the_last_seven_days_ending_on_updated() -> None:
+    """Seven calendar days inclusive of the end day; older rows and future rows are out."""
+    days = {
+        "2026-09-10": {"count": 100, "uniques": 1},
+        "2026-09-11": {"count": 1, "uniques": 1},
+        "2026-09-14": {"count": 2, "uniques": 1},
+        "2026-09-17": {"count": 4, "uniques": 1},
+        "2026-09-18": {"count": 1000, "uniques": 1},
+    }
+    assert clonometer.recent(ledger(days), "2026-09-17", 7) == 7
+    assert clonometer.recent(ledger(days), "2026-09-17", 1) == 4
+    assert clonometer.recent(ledger({}), "2026-09-17", 7) == 0
 
 
 # --------------------------------------------------------------------------
@@ -464,12 +491,18 @@ def test_cli_write_mode_writes_exactly_the_expected_files_for_clones_only(
         "since": TODAY,
         "updated": TODAY,
         "window": {"days": 14, "count": 12, "uniques": 9},
+        "last7": 12,
+        "last7_short": "12",
         "total": 12,
         "total_short": "12",
         "window_short": "12",
+        "badge": "12 (7d) " + chr(0x2022) + " 12 (all-time)",
     }
     # sort_keys=True, so the file's own top-level key order is alphabetical.
     assert list(numbers_doc.keys()) == [
+        "badge",
+        "last7",
+        "last7_short",
         "metric",
         "repo",
         "schema",
