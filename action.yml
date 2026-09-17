@@ -31,14 +31,17 @@ runs:
     # from that checkout, so the fetch is what the run executes, not a
     # decoration. Plain git over https, no token: clonometer is public. A
     # local `uses: ./` has no action repository and skips it. The context
-    # arrives through env because a composite action's own context is not
-    # visible to a nested action's inputs.
+    # arrives through env because a nested action's inputs see that nested
+    # action's own context, and a run body reads the values reliably only
+    # through env. No prompt: a fetch that would ask for credentials is a
+    # misconfiguration and must fail, never hang the runner.
     - name: fetch
       shell: bash
       env:
         CLONOMETER_ACTION_REPOSITORY: ${{ github.action_repository }}
         CLONOMETER_ACTION_REF: ${{ github.action_ref }}
         CLONOMETER_SERVER: ${{ github.server_url }}
+        GIT_TERMINAL_PROMPT: "0"
       run: |
         set -euo pipefail
         if [ -z "${CLONOMETER_ACTION_REPOSITORY:-}" ]; then
