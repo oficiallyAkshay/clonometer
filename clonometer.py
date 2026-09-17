@@ -37,7 +37,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 TOKEN_ENV = "CLONOMETER_TOKEN"
@@ -48,6 +48,9 @@ DEFAULT_API_ROOT = "https://api.github.com"
 DEFAULT_BRANCH = "badges"
 DEFAULT_METRICS = "clones"
 WINDOW_DAYS = 14
+# The separator in the ready-made badge line, built from its code point so the
+# character itself never has to survive an editor's autocorrect.
+BULLET = chr(0x2022)
 
 # Long enough for a slow API, short enough that a hung socket does not hold a
 # runner for the job's whole timeout.
@@ -206,6 +209,22 @@ def lifetime(ledger: dict) -> int:
     return sum(int(day.get("count", 0)) for day in ledger.get("days", {}).values())
 
 
+def recent(ledger: dict, updated: str, days: int) -> int:
+    """The count summed over the last ``days`` days of the ledger, ending on ``updated``.
+
+    Counts add across days, unlike uniques, so this is GitHub's own per-day
+    figures summed: an honest short window even though the endpoint only
+    hands out a 14-day one.
+    """
+    end = date.fromisoformat(updated)
+    start = end - timedelta(days=days - 1)
+    return sum(
+        int(fields.get("count", 0))
+        for day, fields in ledger.get("days", {}).items()
+        if start <= date.fromisoformat(day) <= end
+    )
+
+
 def guard(new_total: int, old_total: int) -> None:
     """Refuse a lifetime total that would go backwards.
 
@@ -251,13 +270,15 @@ def numbers(
     window_count: int,
     window_uniques: int,
     total: int,
+    last7: int,
 ) -> dict:
     """The numbers file for one metric.
 
-    Plain data, nothing shaped for a particular badge: the window GitHub
-    reported for this run, the lifetime total from the merged ledger, and a
-    short form of each so a consumer's shields dynamic JSON badge does not
-    have to reimplement the k/M rounding itself.
+    Plain data: the window GitHub reported for this run, the last seven days
+    and the lifetime total from the merged ledger, a short form of each so a
+    consumer's shields dynamic JSON badge does not have to reimplement the
+    k/M rounding, and one ready-made badge line (seven days, a bullet, all
+    time) for the consumer who wants both numbers in one badge.
     """
     return {
         "schema": 1,
@@ -266,9 +287,12 @@ def numbers(
         "since": since,
         "updated": updated,
         "window": {"days": WINDOW_DAYS, "count": window_count, "uniques": window_uniques},
+        "last7": last7,
+        "last7_short": short(last7),
         "total": total,
         "total_short": short(total),
         "window_short": short(window_count),
+        "badge": f"{short(last7)} (7d) {BULLET} {short(total)} (all-time)",
     }
 
 
@@ -347,6 +371,7 @@ def _compute(
             window_count=window_count,
             window_uniques=window_uniques,
             total=new_total,
+            last7=recent(merged, today, 7),
         )
         results.append((numbers_doc, merged))
     return results

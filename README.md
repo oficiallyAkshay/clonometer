@@ -14,7 +14,8 @@ It is for repositories whose install is a clone: agent skills, actions, template
   <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/license-MIT-2f6f4e?logo=opensourceinitiative&logoColor=white"></a>
   <a href="pyproject.toml"><img alt="Python 3.11 or newer" src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white"></a>
   <a href="pyproject.toml"><img alt="zero runtime dependencies" src="https://img.shields.io/badge/dependencies-0-2f6f4e?logo=python&logoColor=white"></a>
-  <a href="#limits"><img alt="clones of this repository, all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white"></a>
+  <a href="#limits"><img alt="clones of this repository, last seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"></a>
+  <a href="#limits"><img alt="views of this repository, last seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"></a>
 </p>
 
 <!-- once published, add: https://img.shields.io/npm/dm/clonometer?logo=npm&logoColor=white and https://img.shields.io/pypi/dm/clonometer?logo=pypi&logoColor=white -->
@@ -29,6 +30,9 @@ GitHub only remembers the last 14 days of clone traffic, then the number resets 
 
 ```json
 {
+  "badge": "61 (7d) • 50.1k (all-time)",
+  "last7": 61,
+  "last7_short": "61",
   "metric": "clones",
   "repo": "owner/name",
   "schema": 1,
@@ -83,9 +87,12 @@ jobs:
 Then badge it however you like:
 
 ```
-https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white
-https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.window.count&label=clones&suffix=%20in%2014%20days
+https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white
+https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white
+https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time
 ```
+
+The first two render as the badges at the top of this page; the third shows one key on its own, and any key in the file works there.
 
 ## How it works
 
@@ -157,9 +164,12 @@ Prior art: [MShawon/github-clone-count-badge](https://github.com/MShawon/github-
 | `window.days` | int | Always `14`, the size of GitHub's window |
 | `window.count` | int | GitHub's own count for the window |
 | `window.uniques` | int | GitHub's own uniques for the window |
+| `last7` | int | Sum of the ledger's counts over the last seven days |
+| `last7_short` | string | `last7` in the short form |
 | `total` | int | Sum of every day's count in the ledger |
 | `total_short` | string | `total` as `1,234`, `12.3k` or `1.2M` |
 | `window_short` | string | `window.count` in the same short form |
+| `badge` | string | Seven days, a bullet, all time, in short form, ready for one badge |
 
 Ledger, one per metric beside its numbers file (the views pair appears only when views are on):
 

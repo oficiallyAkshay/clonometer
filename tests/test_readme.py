@@ -16,10 +16,11 @@ CONTRIBUTING = REPO_ROOT / ".github" / "CONTRIBUTING.md"
 
 RECIPE_URLS = (
     "https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/"
-    "OWNER/REPO/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time"
-    "&logo=github&logoColor=white",
+    "OWNER/REPO/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white",
     "https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/"
-    "OWNER/REPO/badges/clones.json&query=$.window.count&label=clones&suffix=%20in%2014%20days",
+    "OWNER/REPO/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white",
+    "https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/"
+    "OWNER/REPO/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time",
 )
 
 LINK_RE = re.compile(r'(?:href|src)="([^"]+)"|\]\(([^)\s]+)\)')
@@ -113,18 +114,23 @@ def test_the_agent_section_documents_every_key_in_the_example() -> None:
         "window.days",
         "window.count",
         "window.uniques",
+        "last7",
+        "last7_short",
         "total",
         "total_short",
         "window_short",
+        "badge",
     ):
         assert f"`{key}`" in agents, f"For agents does not document {key}"
     assert text.rstrip().endswith("(.github/CONTRIBUTING.md).")
 
 
-def test_the_readme_wears_its_own_badge_made_from_the_first_recipe() -> None:
-    """The repo's own badge is the recipe with this repository filled in, nothing else."""
-    own = RECIPE_URLS[0].replace("OWNER/REPO", "oficiallyAkshay/clonometer")
-    assert f'src="{own}"' in README.read_text(encoding="utf-8")
+def test_the_readme_wears_its_own_badges_made_from_the_first_two_recipes() -> None:
+    """The repo's own clones and views badges are the recipes with this repository filled in."""
+    text = README.read_text(encoding="utf-8")
+    for recipe in RECIPE_URLS[:2]:
+        own = recipe.replace("OWNER/REPO", "oficiallyAkshay/clonometer")
+        assert f'src="{own}"' in text
 
 
 def test_the_hero_graphic_matches_its_committed_spec() -> None:
