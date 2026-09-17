@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 150" width="900" height="150" role="img" aria-label="A cron job reads the GitHub traffic API, merges it into a ledger, publishes a numbers file on the badges branch, and your badge reads it">
+<style>text{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,sans-serif;fill:#768390}.t{font-size:15px;font-weight:600}.s{font-size:13px}.b{fill:#768390;fill-opacity:.08;stroke:#768390;stroke-width:1.5}.g{fill:none;stroke:#768390;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#768390"/></marker></defs>
+<rect class="b" x="10" y="25" width="150" height="100" rx="10"/>
+<g class="g"><circle cx="85.0" cy="52" r="12"/><path d="M85.0 44v8h6"/></g>
+<text class="t" x="85.0" y="91" text-anchor="middle">cron, once a day</text>
+<path class="g" d="M164 75.0h25" marker-end="url(#a)"/>
+<rect class="b" x="194" y="25" width="150" height="100" rx="10"/>
+<path class="g" d="M251.0 61a9 9 0 0 1 2-17a12 12 0 0 1 23-3a9 9 0 0 1 8 20z"/>
+<text class="t" x="269.0" y="91" text-anchor="middle">GitHub traffic API</text>
+<text class="s" x="269.0" y="111" text-anchor="middle">14-day window</text>
+<path class="g" d="M348 75.0h25" marker-end="url(#a)"/>
+<rect class="b" x="378" y="25" width="150" height="100" rx="10"/>
+<g class="g"><rect x="439.0" y="39" width="28" height="26" rx="3"/><path d="M445.0 47h16M445.0 53h16M445.0 59h10"/></g>
+<text class="t" x="453.0" y="91" text-anchor="middle">ledger merge</text>
+<text class="s" x="453.0" y="111" text-anchor="middle">max per day</text>
+<path class="g" d="M532 75.0h25" marker-end="url(#a)"/>
+<rect class="b" x="562" y="25" width="150" height="100" rx="10"/>
+<g class="g"><path d="M626.0 39h14l8 8v18h-22z"/><path d="M640.0 39v8h8"/><path d="M632.0 55h10M632.0 60h6"/></g>
+<text class="t" x="637.0" y="91" text-anchor="middle">numbers file</text>
+<text class="s" x="637.0" y="111" text-anchor="middle">badges branch</text>
+<path class="g" d="M716 75.0h25" marker-end="url(#a)"/>
+<rect class="b" x="746" y="25" width="150" height="100" rx="10"/>
+<g><rect x="795.0" y="42" width="52" height="20" rx="4" fill="#768390"/><rect x="819.0" y="42" width="28" height="20" rx="4" fill="#3fb950"/><rect x="819.0" y="42" width="6" height="20" fill="#3fb950"/></g>
+<text class="t" x="821.0" y="91" text-anchor="middle">your badge</text>
+<text class="s" x="821.0" y="111" text-anchor="middle">any style</text>
+</svg>

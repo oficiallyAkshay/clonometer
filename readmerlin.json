@@ -1,0 +1,6 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oficiallyAkshay/readmerlin/main/readmerlin.schema.json",
+  "counts": {
+    "dependencies": "python3 -c \"import tomllib; print(len(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))\""
+  }
+}
