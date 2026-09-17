@@ -43,23 +43,44 @@ The layout.
 | `.github/workflows/` | CI gates and the dogfood workflow |
 | `assets/` | The emoji icon and the social preview image |
 
-**The CLI contract, in brief.**
+**The numbers file and the CLI.**
+
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `schema` | int | Always `1` |
+| `repo` | string | `owner/name` the numbers belong to |
+| `metric` | string | `clones` or `views` |
+| `since` | date | The earliest day in the ledger, UTC |
+| `updated` | date | The day this file was written, UTC |
+| `window.days` | int | Always `14`, the size of GitHub's window |
+| `window.count` | int | GitHub's own count for the window, as reported this run |
+| `window.uniques` | int | GitHub's own uniques for the window |
+| `last7`, `last7_short` | int, string | Sum of the ledger's counts over the last seven days, so it never goes down, and its short form |
+| `total`, `total_short` | int, string | Sum of every day's count in the ledger, and its short form: `1,234`, `12.3k`, `1.2M` |
+| `window_short` | string | `window.count` in the same short form |
+| `badge` | string | Seven days, a bullet, all time, in short form, ready for one badge |
+
+| File on the storage branch | Holds |
+| --- | --- |
+| `clones.json`, `clones-ledger.json` | The numbers file above and its ledger |
+| `views.json`, `views-ledger.json` | The same for views, when views are on |
+
+```json
+{"schema": 1, "repo": "owner/name", "since": "2026-09-17", "days": {"2026-09-17": {"count": 12, "uniques": 9}}}
+```
+
+Merge: each day's fields become the larger of the ledger's value and the new one, no day is ever removed. Guard: a lifetime total below the previous run's is refused and nothing is written.
 
 ```
-clonometer OWNER/NAME [--write DIR] [--branch BRANCH] [--metrics clones|clones,views]
+clonometer OWNER/NAME [--write DIR] [--branch badges] [--metrics clones|clones,views]
+uvx --from git+https://github.com/oficiallyAkshay/clonometer clonometer owner/name
 ```
 
-Without `--write`, the run is read only: it prints one line per metric to
-stdout and writes nothing. With `--write DIR`, it computes everything first,
-then writes the numbers file and the ledger file, or nothing at all if
-anything fails. clonometer publishes numbers, never a badge; the label,
-colour, style and logo are the consumer's own shields dynamic JSON recipe
-over the numbers file. The token comes from `CLONOMETER_TOKEN`, falling back
-to `GITHUB_TOKEN`. Exit code 0 on success, exit 1 with one plain line on
-stderr on any failure.
-
-Tests point the script at a fake server through the `CLONOMETER_API`
-environment variable, never at the real API.
+| Variable or exit | Meaning |
+| --- | --- |
+| `CLONOMETER_TOKEN` | The token; `GITHUB_TOKEN` is read when it is unset and can never work |
+| `CLONOMETER_API` | API root override for tests, https only, default `https://api.github.com` |
+| exit `0` or `1` | Numbers printed or files written, read-only without `--write`; or one line on stderr and nothing written |
 
 **What CI runs.**
 

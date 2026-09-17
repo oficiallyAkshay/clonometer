@@ -97,12 +97,12 @@ def test_the_consumer_workflow_file_is_linked_and_fetched_by_the_install_line() 
     assert template.is_file()
     assert "(.github/consumer-workflow.yml)" in text
     assert "consumer-workflow.yml | sed" in text
+    assert text.index("consumer-workflow.yml | sed") < text.index("## Features")
     assert "secrets.TRAFFIC_TOKEN" in template.read_text("utf-8")
 
 
-def test_the_agent_section_documents_every_key_in_the_example() -> None:
-    text = README.read_text("utf-8")
-    agents = text[text.index("## For agents") :]
+def test_contributing_documents_every_key_in_the_numbers_file() -> None:
+    text = CONTRIBUTING.read_text("utf-8")
     for key in (
         "schema",
         "repo",
@@ -113,14 +113,12 @@ def test_the_agent_section_documents_every_key_in_the_example() -> None:
         "window.count",
         "window.uniques",
         "last7",
-        "last7_short",
         "total",
-        "total_short",
         "window_short",
         "badge",
     ):
-        assert f"`{key}`" in agents, f"For agents does not document {key}"
-    assert text.rstrip().endswith("(.github/CONTRIBUTING.md).")
+        assert f"`{key}`" in text, f"CONTRIBUTING does not document {key}"
+    assert "## For agents" not in README.read_text("utf-8")
 
 
 def test_the_readme_wears_its_own_badges_made_from_the_first_two_recipes() -> None:
