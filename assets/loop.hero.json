@@ -1,11 +1,8 @@
 {
-  "viewBox": [900, 150],
-  "box": {"width": 150, "height": 100, "gap": 34, "x": 10, "y": 25},
-  "steps": [
-    {"label": "cron, once a day", "glyph": "clock"},
-    {"label": "GitHub traffic API", "glyph": "cloud", "sub": "14-day window"},
-    {"label": "ledger merge", "glyph": "ledger", "sub": "max per day"},
-    {"label": "numbers file", "glyph": "file", "sub": "badges branch"},
-    {"label": "your badge", "glyph": "badge", "sub": "any style"}
+  "viewBox": [900, 230],
+  "zones": [
+    {"title": "What GitHub keeps", "caption": "14 days, then gone", "kind": "window", "days": 14},
+    {"title": "What clonometer does, once a day", "caption": "every day kept, never lost", "kind": "ledger", "rows": ["clones", "views"], "columns": 11},
+    {"title": "What you get", "caption": "any badge, any style", "kind": "result", "branch": "badges", "files": ["clones.json", "views.json"], "badges": [["clones", "61 (7d) • 50.1k (all-time)"], ["views", "210 (7d) • 98k (all-time)"]]}
   ]
 }
