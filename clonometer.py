@@ -162,11 +162,21 @@ def read_ledger(
         not isinstance(ledger, dict)
         or ledger.get("schema") != 1
         or not isinstance(ledger.get("days"), dict)
+        or not all(_is_date(day) for day in ledger["days"])
     ):
         raise ClonometerError(
             f"{file_name} on the {branch} branch does not match the ledger schema"
         )
     return ledger
+
+
+def _is_date(value: object) -> bool:
+    """True for a YYYY-MM-DD string, the only shape a ledger day key may have."""
+    try:
+        date.fromisoformat(str(value))
+    except ValueError:
+        return False
+    return isinstance(value, str) and len(value) == 10
 
 
 def _count(value: object, what: str) -> int:
@@ -189,13 +199,15 @@ def merge(ledger: dict, rows: list[dict]) -> dict:
     """
     days = {date: dict(fields) for date, fields in ledger.get("days", {}).items()}
     for row in rows:
-        date = str(row.get("timestamp", ""))[:10]
-        if not date:
+        day = str(row.get("timestamp", ""))[:10]
+        if not day:
             continue
+        if not _is_date(day):
+            raise ClonometerError(f"the traffic endpoint answered with a bad timestamp: {day!r}")
         count = _count(row.get("count", 0), "count")
         uniques = _count(row.get("uniques", 0), "uniques")
-        existing = days.get(date, {"count": 0, "uniques": 0})
-        days[date] = {
+        existing = days.get(day, {"count": 0, "uniques": 0})
+        days[day] = {
             "count": max(existing.get("count", 0), count),
             "uniques": max(existing.get("uniques", 0), uniques),
         }

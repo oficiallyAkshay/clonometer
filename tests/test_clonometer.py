@@ -778,3 +778,28 @@ def test_a_trailing_slash_on_the_api_root_does_not_double_the_slash(
     fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
     assert clonometer.main([REPO]) == 0
     assert fake_http.requests[0].full_url.startswith("https://ghe.example/api/v3/repos/")
+
+
+def test_a_bad_timestamp_from_the_endpoint_is_one_line_not_a_traceback(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload = traffic_payload("clones", [("2026-09-17", 5, 1)], count=5)
+    payload["clones"][0]["timestamp"] = "not-a-real-timestamp"
+    fake_http.queue(payload, http_error(404))
+    assert clonometer.main([REPO, "--write", str(tmp_path / "out")]) == 1
+    captured = capsys.readouterr()
+    assert captured.err.count("\n") == 1 and "bad timestamp" in captured.err
+    assert not (tmp_path / "out").exists()
+
+
+def test_a_ledger_with_a_day_key_that_is_not_a_date_is_refused(
+    fake_http, token_env, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A corrupt ledger is refused outright rather than parsed as far as it goes."""
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        contents_response(ledger({"not-a-date": {"count": 1, "uniques": 1}})),
+    )
+    assert clonometer.main([REPO]) == 1
+    captured = capsys.readouterr()
+    assert captured.err.count("\n") == 1 and "ledger schema" in captured.err
