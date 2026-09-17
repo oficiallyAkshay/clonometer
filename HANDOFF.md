@@ -37,3 +37,20 @@ Throwaway. Lives on this branch only, never on main. Written by more than one se
 ## clonometer (from the hero skill session, one addition)
 
 - The local clone's main is 6 commits behind origin. Pull before starting any new worktree there. Everything else is in the clonometer session's entry at the top.
+
+---
+
+## clonometer: steps only the owner can do (from the boomerang session's cross-repo checklist)
+
+- PyPI pending publisher; first `npm publish`; dispatch release; social preview; look at the README hero in your own browser
+
+---
+
+## clonometer (from the ossemble planning session, 2026-09-17, an outside view written before the build sessions reported; where it disagrees with a section above, the section above wins)
+
+Seen from outside. Main is at "The README drops Quick start and the agent section, shows the badges as a row, and says in three rows what leaves your machine". No open PRs listed by gh at the time of writing.
+
+- Full state is in memory note `clonometer-project`, including the self-fetch decision and the pinned commit USPatentTracker uses (`uspatenttracker-clonometer`).
+- Open per that note: animated conveyor hero on branch `claude/belt`, the closing report, a second leanness pass over README, CONTRIBUTING and action.yml, Codecov badge to re-check, social preview upload, PyPI pending publisher and first manual npm publish then dispatch release.yml.
+- Rollout order after that: boomerang consumer PR, then pierless and readmerlin in their own sessions.
+- The clonometer session should append its own block; its learnings file is already beside this one.
