@@ -80,16 +80,55 @@ def test_the_readme_has_no_bare_http_link() -> None:
         assert "http://" not in line, f"README has a bare http link: {line}"
 
 
-def test_the_mermaid_diagram_names_its_five_nodes() -> None:
+def test_the_hero_graphic_is_committed_offline_and_names_its_five_steps() -> None:
+    svg = REPO_ROOT / "assets" / "loop.svg"
+    assert svg.is_file()
+    assert 'src="assets/loop.svg"' in README.read_text("utf-8")
+    body = svg.read_text("utf-8")
+    for label in ("cron", "traffic API", "ledger merge", "numbers file", "your badge"):
+        assert label in body, f"loop graphic is missing {label!r}"
+    assert "http" not in body.replace("http://www.w3.org/2000/svg", "")
+    assert "@import" not in body and "<image" not in body
+
+
+def test_the_consumer_workflow_file_is_the_block_the_readme_shows() -> None:
+    """One source for the workflow: the curl one-liner fetches exactly what the README prints."""
     text = README.read_text("utf-8")
-    start = text.index("```mermaid")
-    end = text.index("```", start + len("```mermaid"))
-    block = text[start:end]
-    for node in ("cron", "traffic API", "ledger merge", "badges branch", "shields"):
-        assert node in block, f"mermaid diagram is missing the {node!r} node"
+    start = text.index("```yaml\n") + len("```yaml\n")
+    end = text.index("```", start)
+    template = (REPO_ROOT / ".github" / "consumer-workflow.yml").read_text("utf-8")
+    assert text[start:end] == template
+    assert "consumer-workflow.yml" in text
+
+
+def test_the_agent_section_documents_every_key_in_the_example() -> None:
+    text = README.read_text("utf-8")
+    agents = text[text.index("## For agents") :]
+    for key in (
+        "schema",
+        "repo",
+        "metric",
+        "since",
+        "updated",
+        "window.days",
+        "window.count",
+        "window.uniques",
+        "total",
+        "total_short",
+        "window_short",
+    ):
+        assert f"`{key}`" in agents, f"For agents does not document {key}"
+    assert text.rstrip().endswith("(.github/CONTRIBUTING.md).")
 
 
 def test_the_readme_wears_its_own_badge_made_from_the_first_recipe() -> None:
     """The repo's own badge is the recipe with this repository filled in, nothing else."""
     own = RECIPE_URLS[0].replace("OWNER/REPO", "oficiallyAkshay/clonometer")
     assert f'src="{own}"' in README.read_text(encoding="utf-8")
+
+
+def test_the_hero_graphic_matches_its_committed_spec() -> None:
+    """The SVG is drawn from the spec beside it; a stale SVG fails here, not in a reader's eye."""
+    from scripts import draw_loop
+
+    assert draw_loop.main(["--check"]) == 0

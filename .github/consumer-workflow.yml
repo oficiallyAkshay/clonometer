@@ -1,0 +1,13 @@
+name: clonometer
+on:
+  schedule: [{cron: "17 3 * * *"}]
+  workflow_dispatch:
+permissions: {}
+concurrency: {group: clonometer}
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: oficiallyAkshay/clonometer@<sha>   # pinned commit
+        with:
+          token: ${{ secrets.TRAFFIC_TOKEN }}
