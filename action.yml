@@ -108,6 +108,9 @@ runs:
         files=""
         for source in "${CLONOMETER_OUT}"/*; do
           name="$(basename "${source}")"
+          # Remove whatever the branch had under this name first: a symlink
+          # planted there would otherwise be followed by the copy.
+          rm -f "${work}/${name}"
           cp "${source}" "${work}/${name}"
           git -C "${work}" add "${name}"
           files="${files} ${name}"
