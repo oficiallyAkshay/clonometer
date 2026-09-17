@@ -61,13 +61,43 @@ class ClonometerError(Exception):
     """A failure the caller prints in one line and exits on."""
 
 
+class _NoRedirects(urllib.request.HTTPRedirectHandler):
+    """Refuse every redirect: a token must never follow a 3xx to another host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
+        raise ClonometerError(
+            f"{req.full_url} answered with a redirect to {newurl}; "
+            "clonometer does not follow redirects while carrying a token"
+        )
+
+
+_OPENER = urllib.request.build_opener(_NoRedirects)
+
+
+def _open(request: urllib.request.Request):
+    """The one call that reaches the network; tests replace this function."""
+    return _OPENER.open(request, timeout=TIMEOUT_SECONDS)
+
+
+def check_api_root(api_root: str) -> str:
+    """The API root with any trailing slash removed, if it is safe to send a token to.
+
+    Only https, or plain http on the local machine for a test server: the
+    token travels in a header, and clear text to any other host would hand
+    it to the network.
+    """
+    root = api_root.strip().rstrip("/") or DEFAULT_API_ROOT
+    if root.startswith("https://") or root.startswith(("http://localhost", "http://127.0.0.1")):
+        return root
+    raise ClonometerError(f"{API_ROOT_ENV} must start with https:// (got {root!r})")
+
+
 def _get_json(url: str, token: str) -> object:
     """GET url with the standard headers and return the parsed JSON body.
 
-    This is the only function in the module that calls
-    ``urllib.request.urlopen``, so a test suite fakes that one function and
-    every code path above it, traffic and ledger alike, is exercised through
-    it.
+    Every request goes through ``_open``, so a test suite fakes that one
+    function and every code path above it, traffic and ledger alike, is
+    exercised through it.
     """
     request = urllib.request.Request(
         url,
@@ -79,7 +109,7 @@ def _get_json(url: str, token: str) -> object:
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+        with _open(request) as response:
             body = response.read()
     except urllib.error.HTTPError:
         # Callers decide what a status means; the stdlib error carries it.
@@ -101,7 +131,9 @@ def today_utc() -> str:
     return datetime.now(UTC).date().isoformat()
 
 
-def fetch_traffic(api_root: str, repo: str, token: str, metric: str) -> dict:
+def fetch_traffic(
+    api_root: str, repo: str, token: str, metric: str, token_source: str = TOKEN_ENV
+) -> dict:
     """The decoded traffic payload for one metric ('clones' or 'views').
 
     A 403 or 404 here almost always means the token is missing
@@ -114,9 +146,15 @@ def fetch_traffic(api_root: str, repo: str, token: str, metric: str) -> dict:
         payload = _get_json(url, token)
     except urllib.error.HTTPError as error:
         if error.code in (403, 404):
+            if token_source == FALLBACK_TOKEN_ENV:
+                fix = (
+                    f"{FALLBACK_TOKEN_ENV} can never read traffic; set the action's token "
+                    f"input ({TOKEN_ENV}) to a fine-grained token with Administration read"
+                )
+            else:
+                fix = "the token needs Administration read on this repository"
             raise ClonometerError(
-                f"the {metric} endpoint answered HTTP {error.code} for {repo}; "
-                f"{TOKEN_ENV} needs Administration read on this repository"
+                f"the {metric} endpoint answered HTTP {error.code} for {repo}; {fix}"
             ) from error
         raise ClonometerError(
             f"the {metric} endpoint answered HTTP {error.code} for {repo}"
@@ -144,12 +182,14 @@ def read_ledger(
     except urllib.error.HTTPError as error:
         if error.code == 404:
             return {"schema": 1, "repo": repo, "since": today, "days": {}}
+        hint = "; the token needs Contents read on this repository" if error.code == 403 else ""
         raise ClonometerError(
-            f"could not read {file_name} from the {branch} branch: HTTP {error.code}"
+            f"could not read {file_name} from the {branch} branch: HTTP {error.code}{hint}"
         ) from error
     if not isinstance(payload, dict) or "content" not in payload:
         raise ClonometerError(
-            f"the contents endpoint answered without a content field for {file_name}"
+            f"GitHub returned {file_name} without its contents; "
+            "a file over 1 MB is read that way, and this one should be far smaller"
         )
     try:
         raw = base64.b64decode(payload["content"])
@@ -165,7 +205,8 @@ def read_ledger(
         or not all(_is_date(day) for day in ledger["days"])
     ):
         raise ClonometerError(
-            f"{file_name} on the {branch} branch does not match the ledger schema"
+            f"{file_name} on the {branch} branch is not a ledger clonometer wrote; "
+            "restore a good copy, or delete it there to start the count again"
         )
     return ledger
 
@@ -248,7 +289,8 @@ def guard(new_total: int, old_total: int) -> None:
     if new_total < old_total:
         raise ClonometerError(
             f"the new lifetime total ({new_total}) is smaller than the previous total "
-            f"({old_total}); refusing to write"
+            f"({old_total}); refusing to write. If the ledger on the branch is wrong, "
+            "delete it there to start the count again"
         )
 
 
@@ -267,6 +309,8 @@ def short(n: int) -> str:
     # Decided after rounding, so 999,950 reads as 1M rather than 1000k.
     if round(value, 1) >= 1_000:
         value, suffix = n / 1_000_000, "M"
+    if round(value, 1) >= 1_000:
+        value, suffix = n / 1_000_000_000, "B"
     text = f"{value:.1f}"
     if text.endswith(".0"):
         text = text[:-2]
@@ -314,6 +358,9 @@ def write(out_dir: Path, metric: str, numbers_doc: dict, ledger_doc: dict) -> tu
     ledger_path = out_dir / f"{metric}-ledger.json"
     try:
         out_dir.mkdir(parents=True, exist_ok=True)
+        for path in (out_dir, numbers_path, ledger_path):
+            if path.is_symlink():
+                raise ClonometerError(f"{path} is a symbolic link; refusing to write through it")
         numbers_path.write_text(
             json.dumps(numbers_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
@@ -357,7 +404,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _compute(
-    args: argparse.Namespace, token: str, api_root: str, today: str
+    args: argparse.Namespace,
+    token: str,
+    api_root: str,
+    today: str,
+    token_source: str = TOKEN_ENV,
 ) -> list[tuple[dict, dict]]:
     """Fetch, merge and total every requested metric before anything is written."""
     owner, _, name = args.repo.partition("/")
@@ -365,11 +416,16 @@ def _compute(
         raise ClonometerError(f"the repository must be given as owner/name, got {args.repo!r}")
     results: list[tuple[dict, dict]] = []
     for metric in parse_metrics(args.metrics):
-        traffic = fetch_traffic(api_root, args.repo, token, metric)
+        traffic = fetch_traffic(api_root, args.repo, token, metric, token_source)
         ledger_file = f"{metric}-ledger.json"
         previous = read_ledger(api_root, args.repo, args.branch, token, ledger_file, today)
         old_total = lifetime(previous)
         merged = merge(previous, traffic.get(metric) or [])
+        # The ledger follows the repository it was read for, so a rename does
+        # not leave it describing the old name forever; and since is a floor
+        # on the days it holds, which the first sample can push back 13 days.
+        merged["repo"] = args.repo
+        merged["since"] = min([str(merged.get("since", today)), *merged["days"]])
         new_total = lifetime(merged)
         guard(new_total, old_total)
         window_count = _count(traffic.get("count", 0), "count")
@@ -392,21 +448,20 @@ def _compute(
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
-        token = (
-            os.environ.get(TOKEN_ENV, "").strip() or os.environ.get(FALLBACK_TOKEN_ENV, "").strip()
-        )
+        token_source = TOKEN_ENV
+        token = os.environ.get(TOKEN_ENV, "").strip()
+        if not token:
+            token_source = FALLBACK_TOKEN_ENV
+            token = os.environ.get(FALLBACK_TOKEN_ENV, "").strip()
         if not token:
             raise ClonometerError(f"{TOKEN_ENV} is not set, so clonometer has no token to use")
-        api_root = (os.environ.get(API_ROOT_ENV, "").strip() or DEFAULT_API_ROOT).rstrip("/")
-        results = _compute(args, token, api_root, today_utc())
+        api_root = check_api_root(os.environ.get(API_ROOT_ENV, DEFAULT_API_ROOT))
+        results = _compute(args, token, api_root, today_utc(), token_source)
         if args.write:
             out_dir = Path(args.write)
             for doc, ledger_doc in results:
                 numbers_path, ledger_path = write(out_dir, doc["metric"], doc, ledger_doc)
-                print(
-                    f"{doc['metric']}: wrote {numbers_path} and {ledger_path}: "
-                    f"{doc['window']['count']:,} (14d), {doc['total']:,} (all-time)"
-                )
+                print(f"{doc['metric']}: wrote {numbers_path} and {ledger_path}; {doc['badge']}")
     except ClonometerError as error:
         print(str(error), file=sys.stderr)
         return 1
@@ -414,8 +469,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.write:
         for doc, _ in results:
             print(
-                f"{doc['metric']}: {doc['window']['count']:,} (14d), {doc['total']:,} (all-time), "
-                f"since {doc['since']}"
+                f"{doc['metric']}: {doc['badge']}, {doc['window']['count']:,} in the last "
+                f"14 days, since {doc['since']}"
             )
     return 0
 
