@@ -21,7 +21,7 @@
 
 <!-- once published, add: https://img.shields.io/npm/dm/clonometer?logo=npm&logoColor=white and https://img.shields.io/pypi/dm/clonometer?logo=pypi&logoColor=white -->
 
-<p align="center"><img alt="GitHub keeps a 14-day window of traffic that slides forward and drops older days; clonometer merges each day's sample into a ledger for clones and for views, appending new days and keeping old ones; you get badges from the numbers files on your badges branch" src="assets/loop.svg" width="900"></p>
+<p align="center"><img alt="A conveyor belt of GitHub's 14-day clone window: a new day rises in on the right every two seconds, the belt slides left, the oldest day tips off the left edge, and its count travels down to a running all-time total that ticks up and pulses" src="assets/loop.svg" width="900"></p>
 
 <p align="center">
   <b><a href="https://github.com/oficiallyAkshay/clonometer/blob/badges/clones.json">See this repository's own numbers file</a></b>
