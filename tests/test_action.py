@@ -78,6 +78,7 @@ def test_the_fetch_step_reads_the_action_context_through_env_and_uses_no_token()
     assert fetch["env"]["CLONOMETER_ACTION_REPOSITORY"] == "${{ github.action_repository }}"
     assert fetch["env"]["CLONOMETER_ACTION_REF"] == "${{ github.action_ref }}"
     assert fetch["env"]["CLONOMETER_SERVER"] == "${{ github.server_url }}"
+    assert fetch["env"]["GIT_TERMINAL_PROMPT"] == "0"
     assert "uses" not in fetch
     assert "token" not in fetch["run"].lower()
     assert "--depth 1" in fetch["run"]
