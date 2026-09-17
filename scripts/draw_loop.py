@@ -28,9 +28,15 @@ DESCRIPTION = (
 def glyph(kind: str, cx: float, gy: float) -> str:
     """One small line-drawn icon per step, centred on cx just under the box top."""
     if kind == "clock":
-        return f'<g class="g"><circle cx="{cx}" cy="{gy + 13}" r="12"/><path d="M{cx} {gy + 5}v8h6"/></g>'
+        return (
+            f'<g class="g"><circle cx="{cx}" cy="{gy + 13}" r="12"/>'
+            f'<path d="M{cx} {gy + 5}v8h6"/></g>'
+        )
     if kind == "cloud":
-        return f'<path class="g" d="M{cx - 18} {gy + 22}a9 9 0 0 1 2-17a12 12 0 0 1 23-3a9 9 0 0 1 8 20z"/>'
+        return (
+            f'<path class="g" d="M{cx - 18} {gy + 22}'
+            'a9 9 0 0 1 2-17a12 12 0 0 1 23-3a9 9 0 0 1 8 20z"/>'
+        )
     if kind == "ledger":
         return (
             f'<g class="g"><rect x="{cx - 14}" y="{gy}" width="28" height="26" rx="3"/>'
