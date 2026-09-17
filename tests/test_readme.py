@@ -81,12 +81,21 @@ def test_the_readme_has_no_bare_http_link() -> None:
         assert "http://" not in line, f"README has a bare http link: {line}"
 
 
-def test_the_hero_graphic_is_committed_offline_and_names_its_five_steps() -> None:
+def test_the_hero_graphic_is_committed_offline_and_shows_the_three_zones() -> None:
     svg = REPO_ROOT / "assets" / "loop.svg"
     assert svg.is_file()
     assert 'src="assets/loop.svg"' in README.read_text("utf-8")
     body = svg.read_text("utf-8")
-    for label in ("cron", "traffic API", "ledger merge", "numbers file", "your badge"):
+    for label in (
+        "What GitHub keeps",
+        "What clonometer does, once a day",
+        "What you get",
+        "clones",
+        "views",
+        "clones.json",
+        "views.json",
+        "all-time",
+    ):
         assert label in body, f"loop graphic is missing {label!r}"
     assert "http" not in body.replace("http://www.w3.org/2000/svg", "")
     assert "@import" not in body and "<image" not in body

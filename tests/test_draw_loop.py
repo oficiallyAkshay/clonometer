@@ -32,18 +32,14 @@ def test_drawing_writes_the_svg_beside_the_spec(
     assert draw_loop.main([]) == 0
     body = target.read_text("utf-8")
     spec = json.loads(draw_loop.SPEC.read_text("utf-8"))
-    for step in spec["steps"]:
-        assert step["label"] in body
-    assert body.count('<rect class="b"') == len(spec["steps"])
-    assert body.count("marker-end") == len(spec["steps"]) - 1
+    for zone in spec["zones"]:
+        assert zone["title"] in body and zone["caption"] in body
+    assert body.count('<rect class="b"') == len(spec["zones"])
+    assert body.count("marker-end") == len(spec["zones"]) - 1
 
 
-def test_every_glyph_in_the_spec_is_one_the_script_knows() -> None:
+def test_an_unknown_zone_kind_is_refused() -> None:
     spec = json.loads(draw_loop.SPEC.read_text("utf-8"))
-    for step in spec["steps"]:
-        assert draw_loop.glyph(step["glyph"], 0, 0)
-
-
-def test_an_unknown_glyph_is_refused() -> None:
-    with pytest.raises(ValueError, match="unknown glyph"):
-        draw_loop.glyph("teapot", 0, 0)
+    spec["zones"][0]["kind"] = "teapot"
+    with pytest.raises(ValueError, match="unknown zone kind"):
+        draw_loop.render(spec)

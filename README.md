@@ -23,7 +23,7 @@ It is for repositories whose install is a clone: agent skills, actions, template
 
 <!-- once published, add: https://img.shields.io/npm/dm/clonometer?logo=npm&logoColor=white and https://img.shields.io/pypi/dm/clonometer?logo=pypi&logoColor=white -->
 
-<p align="center"><img alt="A cron job reads the GitHub traffic API, merges it into a ledger, publishes a numbers file on the badges branch, and your badge reads it" src="assets/loop.svg" width="900"></p>
+<p align="center"><img alt="GitHub keeps 14 days of traffic and then drops them; clonometer samples them once a day into a ledger with a row for clones and a row for views, keeping every day; you get two numbers files on a badges branch and any badge you like" src="assets/loop.svg" width="900"></p>
 
 <p align="center">
   <b><a href="https://github.com/oficiallyAkshay/clonometer/blob/badges/clones.json">See this repository's own numbers file</a></b>
