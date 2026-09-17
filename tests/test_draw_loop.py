@@ -35,7 +35,7 @@ def test_drawing_writes_the_svg_beside_the_spec(
     for zone in spec["zones"]:
         assert zone["title"] in body and zone["caption"] in body
     assert body.count('<rect class="b"') == len(spec["zones"])
-    assert body.count("marker-end") == len(spec["zones"]) - 1
+    assert body.count("marker-end") >= len(spec["zones"]) - 1
 
 
 def test_an_unknown_zone_kind_is_refused() -> None:

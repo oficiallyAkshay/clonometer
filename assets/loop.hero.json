@@ -1,8 +1,8 @@
 {
   "viewBox": [900, 230],
   "zones": [
-    {"title": "What GitHub keeps", "caption": "14 days, then gone", "kind": "window", "days": 14},
-    {"title": "What clonometer does, once a day", "caption": "every day kept, never lost", "kind": "ledger", "rows": ["clones", "views"], "columns": 11},
-    {"title": "What you get", "caption": "any badge, any style", "kind": "result", "branch": "badges", "files": ["clones.json", "views.json"], "badges": [["clones", "61 (7d) • 50.1k (all-time)"], ["views", "210 (7d) • 98k (all-time)"]]}
+    {"title": "What GitHub keeps", "caption": "days slide out and are gone", "kind": "window", "days": 14, "gone": 3},
+    {"title": "What clonometer does, once a day", "caption": "new days appended, old days kept", "kind": "ledger", "rows": ["clones", "views"], "kept": 9, "sample": 5},
+    {"title": "What you get", "caption": "read from your badges branch", "kind": "result", "badges": [["clones", "61 (7d) • 50.1k (all-time)"], ["views", "210 (7d) • 98k (all-time)"]]}
   ]
 }

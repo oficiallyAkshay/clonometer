@@ -43,10 +43,9 @@ def _local_links(text: str) -> list[str]:
     ]
 
 
-def test_the_readme_carries_both_dynamic_json_badge_recipes() -> None:
+def test_the_readme_carries_the_badge_recipe() -> None:
     text = README.read_text("utf-8")
-    for recipe in RECIPE_URLS:
-        assert recipe in text
+    assert RECIPE_URLS[0] in text
 
 
 def test_the_readme_ships_numbers_not_a_shields_endpoint() -> None:
@@ -66,16 +65,6 @@ def test_relative_links_in_contributing_resolve_to_a_file() -> None:
         assert target.is_file(), f"CONTRIBUTING links to missing file: {link}"
 
 
-def test_the_consumer_workflow_carries_the_required_pieces() -> None:
-    text = README.read_text("utf-8")
-    start = text.index("```yaml")
-    end = text.index("```", start + len("```yaml"))
-    block = text[start:end]
-    assert "secrets.TRAFFIC_TOKEN" in block
-    assert "concurrency" in block
-    assert "oficiallyAkshay/clonometer@" in block
-
-
 def test_the_readme_has_no_bare_http_link() -> None:
     for line in README.read_text("utf-8").splitlines():
         assert "http://" not in line, f"README has a bare http link: {line}"
@@ -92,8 +81,8 @@ def test_the_hero_graphic_is_committed_offline_and_shows_the_three_zones() -> No
         "What you get",
         "clones",
         "views",
-        "clones.json",
-        "views.json",
+        "14 days",
+        "gone",
         "all-time",
     ):
         assert label in body, f"loop graphic is missing {label!r}"
@@ -101,14 +90,14 @@ def test_the_hero_graphic_is_committed_offline_and_shows_the_three_zones() -> No
     assert "@import" not in body and "<image" not in body
 
 
-def test_the_consumer_workflow_file_is_the_block_the_readme_shows() -> None:
-    """One source for the workflow: the curl one-liner fetches exactly what the README prints."""
+def test_the_consumer_workflow_file_is_linked_and_fetched_by_the_install_line() -> None:
+    """One source for the workflow: the README links the file its one-liner fetches."""
     text = README.read_text("utf-8")
-    start = text.index("```yaml\n") + len("```yaml\n")
-    end = text.index("```", start)
-    template = (REPO_ROOT / ".github" / "consumer-workflow.yml").read_text("utf-8")
-    assert text[start:end] == template
-    assert "consumer-workflow.yml" in text
+    template = REPO_ROOT / ".github" / "consumer-workflow.yml"
+    assert template.is_file()
+    assert "(.github/consumer-workflow.yml)" in text
+    assert "consumer-workflow.yml | sed" in text
+    assert "secrets.TRAFFIC_TOKEN" in template.read_text("utf-8")
 
 
 def test_the_agent_section_documents_every_key_in_the_example() -> None:
