@@ -32,6 +32,7 @@ dev = [
     "diff-cover==10.5.1",
     "pre-commit==4.6.2",
     "pyyaml==6.0.3",
+    "drawsvg==2.4.2",
 ]
 
 [build-system]

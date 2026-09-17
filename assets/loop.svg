@@ -1,70 +1,150 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 230" width="900" height="230" role="img" aria-label="GitHub keeps a 14-day window of traffic that slides forward and drops older days; clonometer merges each day's sample into a ledger for clones and for views, appending new days and keeping old ones; you get badges from the numbers files on your badges branch">
-<style>text{font-family:system-ui,-apple-system,&quot;Segoe UI&quot;,sans-serif;fill:#768390}.t{font-size:15px;font-weight:600}.s{font-size:13px}.xs{font-size:12px}.badge{font-size:12px;fill:#ffffff;font-weight:600}.b{fill:#768390;fill-opacity:.06;stroke:#768390;stroke-width:1.5}.g{fill:none;stroke:#768390;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}</style>
-<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#768390"/></marker></defs>
-<rect class="b" x="10" y="20" width="270" height="190" rx="10"/>
-<text class="t" x="145.0" y="48" text-anchor="middle">What GitHub keeps</text>
-<rect x="28" y="110" width="10" height="22" rx="2" fill="none" stroke="#768390" stroke-width="1" stroke-dasharray="3 2" stroke-opacity="0.6"/>
-<rect x="42" y="102" width="10" height="30" rx="2" fill="none" stroke="#768390" stroke-width="1" stroke-dasharray="3 2" stroke-opacity="0.6"/>
-<rect x="56" y="114" width="10" height="18" rx="2" fill="none" stroke="#768390" stroke-width="1" stroke-dasharray="3 2" stroke-opacity="0.6"/>
-<rect x="70" y="98" width="10" height="34" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="84" y="106" width="10" height="26" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="98" y="94" width="10" height="38" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="112" y="112" width="10" height="20" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="126" y="104" width="10" height="28" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="140" y="96" width="10" height="36" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="154" y="108" width="10" height="24" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="168" y="100" width="10" height="32" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="182" y="92" width="10" height="40" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="196" y="102" width="10" height="30" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="210" y="88" width="10" height="44" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="224" y="106" width="10" height="26" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="238" y="98" width="10" height="34" rx="2" fill="#768390" fill-opacity="0.85"/>
-<rect x="252" y="112" width="10" height="20" rx="2" fill="#768390" fill-opacity="0.85"/>
-<path class="g" d="M67 74v-6h198v6"/>
-<text class="s" x="166.0" y="64" text-anchor="middle">14 days</text>
-<path class="g" d="M269 71h12" marker-end="url(#a)"/>
-<text class="xs" x="287" y="75" text-anchor="start">daily</text>
-<text class="xs" x="47.0" y="148" text-anchor="middle">gone</text>
-<text class="s" x="145.0" y="198" text-anchor="middle">days slide out and are gone</text>
-<path class="g" d="M283 115.0h18" marker-end="url(#a)"/>
-<rect class="b" x="305" y="20" width="270" height="190" rx="10"/>
-<text class="t" x="440.0" y="48" text-anchor="middle">What clonometer does, once a day</text>
-<text class="s" x="361" y="92" text-anchor="end">clones</text>
-<rect x="371" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="385" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="399" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="413" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="427" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="441" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="455" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="469" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="483" y="82" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="497" y="82" width="11" height="11" rx="2" fill="#3fb950" fill-opacity="0.9"/>
-<rect x="439" y="78" width="71" height="19" rx="3" fill="none" stroke="#3fb950" stroke-width="1.5" stroke-dasharray="4 3"/>
-<text class="s" x="361" y="126" text-anchor="end">views</text>
-<rect x="371" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="385" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="399" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="413" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="427" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="441" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="455" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="469" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="483" y="116" width="11" height="11" rx="2" fill="#768390" fill-opacity="0.55"/>
-<rect x="497" y="116" width="11" height="11" rx="2" fill="#3fb950" fill-opacity="0.9"/>
-<rect x="439" y="112" width="71" height="19" rx="3" fill="none" stroke="#3fb950" stroke-width="1.5" stroke-dasharray="4 3"/>
-<text class="xs" x="470.0" y="72" text-anchor="middle">today's sample</text>
-<text class="xs" x="502" y="142" text-anchor="middle">+1 day</text>
-<text class="s" x="440.0" y="170" text-anchor="middle">sum of every day = all-time</text>
-<text class="s" x="440.0" y="198" text-anchor="middle">new days appended, old days kept</text>
-<path class="g" d="M578 115.0h18" marker-end="url(#a)"/>
-<rect class="b" x="600" y="20" width="270" height="190" rx="10"/>
-<text class="t" x="735.0" y="48" text-anchor="middle">What you get</text>
-<rect x="615.0" y="82" width="62" height="26" rx="5" fill="#768390"/><rect x="672.0" y="82" width="183" height="26" rx="5" fill="#3fb950"/><rect x="672.0" y="82" width="8" height="26" fill="#3fb950"/>
-<text class="badge" x="646.0" y="99" text-anchor="middle">clones</text>
-<text class="badge" x="766.0" y="99" text-anchor="middle">61 (7d) • 50.1k (all-time)</text>
-<rect x="615.0" y="126" width="62" height="26" rx="5" fill="#768390"/><rect x="672.0" y="126" width="183" height="26" rx="5" fill="#3fb950"/><rect x="672.0" y="126" width="8" height="26" fill="#3fb950"/>
-<text class="badge" x="646.0" y="143" text-anchor="middle">views</text>
-<text class="badge" x="766.0" y="143" text-anchor="middle">210 (7d) • 98k (all-time)</text>
-<text class="s" x="735.0" y="198" text-anchor="middle">read from your badges branch</text>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="900" height="230" viewBox="0 0 900 230" role="img" aria-label="A conveyor belt of GitHub's 14-day clone window: a new day rises in on the right every two seconds, the belt slides left, the oldest day tips off the left edge, and its count travels down to a running all-time total that ticks up and pulses">
+<defs>
+<clipPath id="belt-clip">
+<rect x="100" y="50" width="700" height="80" />
+</clipPath>
+</defs>
+<style>text{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;fill:#768390}.t{font-size:15px;font-weight:600}.s{font-size:12px}.xs{font-size:11px}.boxval{font-size:12px;fill:#ffffff;font-weight:600}.total{font-size:26px;font-weight:700;fill:#768390}.fall{font-size:13px;font-weight:700;fill:#3fb950}</style>
+<text x="450" y="24" font-size="15" text-anchor="middle" class="t">GitHub keeps 14 days</text>
+<text x="100" y="42" font-size="12" text-anchor="start" class="s">oldest</text>
+<text x="800" y="42" font-size="12" text-anchor="end" class="s">today</text>
+<path d="M100 48v6" stroke="#768390" stroke-width="1.5" fill="none" />
+<path d="M800 48v6" stroke="#768390" stroke-width="1.5" fill="none" />
+<rect x="10" y="88" width="20" height="16" rx="3" fill="none" stroke="#768390" stroke-width="1" stroke-dasharray="2 3" stroke-opacity="0.5" />
+<rect x="36" y="80" width="20" height="24" rx="3" fill="none" stroke="#768390" stroke-width="1" stroke-dasharray="2 3" stroke-opacity="0.5" />
+<rect x="62" y="92" width="20" height="12" rx="3" fill="none" stroke="#768390" stroke-width="1" stroke-dasharray="2 3" stroke-opacity="0.5" />
+<text x="49" y="120" font-size="11" text-anchor="middle" class="xs" fill-opacity="0.6">gone</text>
+<g clip-path="url(#belt-clip)">
+<g id="belt-strip" transform="translate(100 0)">
+<g transform="translate(0 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">7</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Mon</text>
+<animate attributeName="opacity" dur="8s" begin="0s" values="1;1;0;0" repeatCount="indefinite" keyTimes="0;0.075;0.175;1" />
+<animateTransform attributeName="transform" dur="8s" begin="0s" values="0,0;0,0;0,14;0,14" type="translate" repeatCount="indefinite" keyTimes="0;0.075;0.175;1" additive="sum" />
+</g>
+<g transform="translate(50 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">12</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Tue</text>
+<animate attributeName="opacity" dur="8s" begin="2s" values="1;1;0;0" repeatCount="indefinite" keyTimes="0;0.075;0.175;1" />
+<animateTransform attributeName="transform" dur="8s" begin="2s" values="0,0;0,0;0,14;0,14" type="translate" repeatCount="indefinite" keyTimes="0;0.075;0.175;1" additive="sum" />
+</g>
+<g transform="translate(100 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">9</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Wed</text>
+<animate attributeName="opacity" dur="8s" begin="4s" values="1;1;0;0" repeatCount="indefinite" keyTimes="0;0.075;0.175;1" />
+<animateTransform attributeName="transform" dur="8s" begin="4s" values="0,0;0,0;0,14;0,14" type="translate" repeatCount="indefinite" keyTimes="0;0.075;0.175;1" additive="sum" />
+</g>
+<g transform="translate(150 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">15</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Thu</text>
+<animate attributeName="opacity" dur="8s" begin="6s" values="1;1;0;0" repeatCount="indefinite" keyTimes="0;0.075;0.175;1" />
+<animateTransform attributeName="transform" dur="8s" begin="6s" values="0,0;0,0;0,14;0,14" type="translate" repeatCount="indefinite" keyTimes="0;0.075;0.175;1" additive="sum" />
+</g>
+<g transform="translate(200 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">7</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Mon</text>
+</g>
+<g transform="translate(250 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">12</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Tue</text>
+</g>
+<g transform="translate(300 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">9</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Wed</text>
+</g>
+<g transform="translate(350 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">15</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Thu</text>
+</g>
+<g transform="translate(400 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">7</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Mon</text>
+</g>
+<g transform="translate(450 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">12</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Tue</text>
+</g>
+<g transform="translate(500 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">9</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Wed</text>
+</g>
+<g transform="translate(550 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">15</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Thu</text>
+</g>
+<g transform="translate(600 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">7</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Mon</text>
+</g>
+<g transform="translate(650 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">12</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Tue</text>
+</g>
+<g transform="translate(700 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">9</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Wed</text>
+<animate attributeName="opacity" dur="8s" begin="0s" values="0;1;1" repeatCount="indefinite" keyTimes="0;0.075;1" />
+<animateTransform attributeName="transform" dur="8s" begin="0s" values="0,10;0,0;0,0" type="translate" repeatCount="indefinite" keyTimes="0;0.075;1" additive="sum" />
+</g>
+<g transform="translate(750 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">15</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Thu</text>
+<animate attributeName="opacity" dur="8s" begin="2s" values="0;1;1" repeatCount="indefinite" keyTimes="0;0.075;1" />
+<animateTransform attributeName="transform" dur="8s" begin="2s" values="0,10;0,0;0,0" type="translate" repeatCount="indefinite" keyTimes="0;0.075;1" additive="sum" />
+</g>
+<g transform="translate(800 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">7</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Mon</text>
+<animate attributeName="opacity" dur="8s" begin="4s" values="0;1;1" repeatCount="indefinite" keyTimes="0;0.075;1" />
+<animateTransform attributeName="transform" dur="8s" begin="4s" values="0,10;0,0;0,0" type="translate" repeatCount="indefinite" keyTimes="0;0.075;1" additive="sum" />
+</g>
+<g transform="translate(850 0)">
+<rect x="0" y="64" width="36" height="40" rx="6" fill="#768390" fill-opacity="0.85" />
+<text x="18" y="88" font-size="12" text-anchor="middle" class="boxval">12</text>
+<text x="18" y="120" font-size="11" text-anchor="middle" class="xs">Tue</text>
+<animate attributeName="opacity" dur="8s" begin="6s" values="0;1;1" repeatCount="indefinite" keyTimes="0;0.075;1" />
+<animateTransform attributeName="transform" dur="8s" begin="6s" values="0,10;0,0;0,0" type="translate" repeatCount="indefinite" keyTimes="0;0.075;1" additive="sum" />
+</g>
+<animateTransform attributeName="transform" dur="8s" begin="0s" values="0,0;-50,0;-50,0;-100,0;-100,0;-150,0;-150,0;-200,0;-200,0" type="translate" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.075;0.25;0.325;0.5;0.575;0.75;0.825;1" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1" />
+</g>
+</g>
+<text x="96" y="110" font-size="13" text-anchor="middle" class="fall" opacity="0">+7<animateMotion dur="8s" begin="0s" path="M0 0 C 0 36, 264 18, 354 26" keyPoints="0;0;1;1" keyTimes="0;0.075;0.175;1" calcMode="linear" repeatCount="indefinite" /><animate attributeName="opacity" dur="8s" begin="0s" values="0;0;1;0;0" repeatCount="indefinite" keyTimes="0;0.075;0.075;0.175;1" /></text>
+<text x="96" y="110" font-size="13" text-anchor="middle" class="fall" opacity="0">+12<animateMotion dur="8s" begin="2s" path="M0 0 C 0 36, 264 18, 354 26" keyPoints="0;0;1;1" keyTimes="0;0.075;0.175;1" calcMode="linear" repeatCount="indefinite" /><animate attributeName="opacity" dur="8s" begin="2s" values="0;0;1;0;0" repeatCount="indefinite" keyTimes="0;0.075;0.075;0.175;1" /></text>
+<text x="96" y="110" font-size="13" text-anchor="middle" class="fall" opacity="0">+9<animateMotion dur="8s" begin="4s" path="M0 0 C 0 36, 264 18, 354 26" keyPoints="0;0;1;1" keyTimes="0;0.075;0.175;1" calcMode="linear" repeatCount="indefinite" /><animate attributeName="opacity" dur="8s" begin="4s" values="0;0;1;0;0" repeatCount="indefinite" keyTimes="0;0.075;0.075;0.175;1" /></text>
+<text x="96" y="110" font-size="13" text-anchor="middle" class="fall" opacity="0">+15<animateMotion dur="8s" begin="6s" path="M0 0 C 0 36, 264 18, 354 26" keyPoints="0;0;1;1" keyTimes="0;0.075;0.175;1" calcMode="linear" repeatCount="indefinite" /><animate attributeName="opacity" dur="8s" begin="6s" values="0;0;1;0;0" repeatCount="indefinite" keyTimes="0;0.075;0.075;0.175;1" /></text>
+<g transform="translate(450 165)">
+<g>
+<animateTransform attributeName="transform" dur="8s" begin="0s" values="1,1;1.06,1.06;1.06,1.06;1,1;1.06,1.06;1.06,1.06;1,1;1.06,1.06;1.06,1.06;1,1;1.06,1.06;1.06,1.06;1,1" type="scale" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.175;0.2125;0.25;0.425;0.4625;0.5;0.675;0.7125;0.75;0.925;0.9625;1" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1" />
+<g transform="translate(-450 -165)">
+<rect x="355" y="142" width="190" height="46" rx="14" fill="#768390" fill-opacity="0.08" stroke="#768390" stroke-width="1.5">
+<set attributeName="stroke" dur="8s" begin="1.4s;3.4s;5.4s;7.4s" to="#3fb950" repeatCount="indefinite" />
+<set attributeName="stroke" dur="8s" begin="2s;4s;6s;8s" to="#768390" repeatCount="indefinite" />
+</rect>
+<text x="450" y="172" font-size="26" text-anchor="middle" class="total" opacity="1">50,123<animate attributeName="opacity" dur="8s" begin="0s" values="1;0" repeatCount="indefinite" calcMode="discrete" keyTimes="0;0.175" /></text>
+<text x="450" y="172" font-size="26" text-anchor="middle" class="total" opacity="0">50,130<animate attributeName="opacity" dur="8s" begin="0s" values="0;1;0" repeatCount="indefinite" calcMode="discrete" keyTimes="0;0.175;0.425" /></text>
+<text x="450" y="172" font-size="26" text-anchor="middle" class="total" opacity="0">50,142<animate attributeName="opacity" dur="8s" begin="0s" values="0;1;0" repeatCount="indefinite" calcMode="discrete" keyTimes="0;0.425;0.675" /></text>
+<text x="450" y="172" font-size="26" text-anchor="middle" class="total" opacity="0">50,151<animate attributeName="opacity" dur="8s" begin="0s" values="0;1" repeatCount="indefinite" calcMode="discrete" keyTimes="0;0.675" /></text>
+</g>
+</g>
+</g>
+<text x="450" y="204" font-size="12" text-anchor="middle" class="s">clones, all-time</text>
+<text x="450" y="220" font-size="11" text-anchor="middle" class="xs">clonometer catches every day before GitHub drops it</text>
 </svg>

@@ -1,8 +1,15 @@
 {
   "viewBox": [900, 230],
-  "zones": [
-    {"title": "What GitHub keeps", "caption": "days slide out and are gone", "kind": "window", "days": 14, "gone": 3},
-    {"title": "What clonometer does, once a day", "caption": "new days appended, old days kept", "kind": "ledger", "rows": ["clones", "views"], "kept": 9, "sample": 5},
-    {"title": "What you get", "caption": "read from your badges branch", "kind": "result", "badges": [["clones", "61 (7d) • 50.1k (all-time)"], ["views", "210 (7d) • 98k (all-time)"]]}
-  ]
+  "title": "GitHub keeps 14 days",
+  "today_label": "today",
+  "oldest_label": "oldest",
+  "gone_label": "gone",
+  "visible_days": 14,
+  "day_seconds": 2,
+  "days_per_loop": 4,
+  "cycle": [7, 12, 9, 15],
+  "day_labels": ["Mon", "Tue", "Wed", "Thu"],
+  "totals": ["50,123", "50,130", "50,142", "50,151"],
+  "total_caption": "clones, all-time",
+  "tagline": "clonometer catches every day before GitHub drops it"
 }
