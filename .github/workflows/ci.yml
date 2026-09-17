@@ -30,11 +30,19 @@ jobs:
         with:
           # gitleaks scans the whole history, not the working tree.
           fetch-depth: 0
+          persist-credentials: false
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: "3.12"
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
+      # The actionlint hook is built from Go source on first use, about
+      # twenty seconds on a fresh runner and most of this job's time. The
+      # hook cache is keyed on the config, so a bump rebuilds it once.
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
       - run: uv sync --all-extras
 
       # The same hooks contributors run locally, so CI and the pre-commit
@@ -76,6 +84,7 @@ jobs:
         with:
           # diff-cover needs history on both sides to find a merge base.
           fetch-depth: 0
+          persist-credentials: false
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: ${{ matrix.python-version }}
@@ -86,8 +95,8 @@ jobs:
 
       # One report per run, so only the newest leg uploads. The upload is
       # tokenless: it authenticates with the job's OIDC identity, which
-      # Codecov accepts once the repository is public. Until then the step
-      # cannot authenticate and is a no-op that does not fail the run.
+      # Codecov accepts from a public repository. A Codecov outage must not
+      # block a merge, so the step reports and moves on.
       - name: upload coverage
         if: matrix.python-version == '3.13'
         uses: codecov/codecov-action@0b35c9ecc4f0529d0eb674914510c22f85b196b4 # v7.1.0
