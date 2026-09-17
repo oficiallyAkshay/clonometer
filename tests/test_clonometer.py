@@ -50,7 +50,7 @@ def fake_http(monkeypatch: pytest.MonkeyPatch):
     seen: list[urllib.request.Request] = []
     queue: list[object] = []
 
-    def fake_urlopen(request: urllib.request.Request, timeout: float | None = None):
+    def fake_urlopen(request: urllib.request.Request):
         seen.append(request)
         result = queue.pop(0)
         if isinstance(result, Exception):
@@ -59,7 +59,7 @@ def fake_http(monkeypatch: pytest.MonkeyPatch):
             return FakeResponse(bytes(result))
         return FakeResponse(json.dumps(result).encode("utf-8"))
 
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr(clonometer, "_open", fake_urlopen)
 
     class Handle:
         def queue(self, *results: object) -> None:
@@ -415,7 +415,7 @@ def test_read_ledger_refuses_content_that_is_not_valid_json(fake_http) -> None:
 def test_read_ledger_refuses_the_wrong_schema_version(fake_http) -> None:
     bad = {"schema": 2, "repo": REPO, "since": TODAY, "days": {}}
     fake_http.queue(contents_response(bad))
-    with pytest.raises(clonometer.ClonometerError, match="schema"):
+    with pytest.raises(clonometer.ClonometerError, match="not a ledger"):
         clonometer.read_ledger(
             clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token", "clones-ledger.json", TODAY
         )
@@ -424,7 +424,7 @@ def test_read_ledger_refuses_the_wrong_schema_version(fake_http) -> None:
 def test_read_ledger_refuses_days_that_is_not_a_dict(fake_http) -> None:
     bad = {"schema": 1, "repo": REPO, "since": TODAY, "days": []}
     fake_http.queue(contents_response(bad))
-    with pytest.raises(clonometer.ClonometerError, match="schema"):
+    with pytest.raises(clonometer.ClonometerError, match="not a ledger"):
         clonometer.read_ledger(
             clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token", "clones-ledger.json", TODAY
         )
@@ -451,7 +451,10 @@ def test_cli_read_only_prints_the_window_and_lifetime_and_writes_nothing(
     )
     assert clonometer.main([REPO]) == 0
     out = capsys.readouterr().out.strip()
-    assert out == f"clones: 100 (14d), 50,123 (all-time), since {TODAY}"
+    assert (
+        out == f"clones: 50.1k (7d) {chr(0x2022)} 50.1k (all-time), 100 in the last 14 days, "
+        "since 2026-09-16"
+    )
 
 
 def test_cli_read_only_never_calls_write_even_on_success(fake_http, token_env, monkeypatch) -> None:
@@ -802,4 +805,145 @@ def test_a_ledger_with_a_day_key_that_is_not_a_date_is_refused(
     )
     assert clonometer.main([REPO]) == 1
     captured = capsys.readouterr()
-    assert captured.err.count("\n") == 1 and "ledger schema" in captured.err
+    assert captured.err.count("\n") == 1 and "not a ledger" in captured.err
+
+
+# --------------------------------------------------------------------------
+# Hardening: where the token may go, what the messages say, what since means
+# --------------------------------------------------------------------------
+
+
+def test_the_api_root_must_be_https_unless_it_is_the_local_machine() -> None:
+    assert clonometer.check_api_root("https://ghe.example/api/v3/") == "https://ghe.example/api/v3"
+    assert clonometer.check_api_root("http://127.0.0.1:8080") == "http://127.0.0.1:8080"
+    assert clonometer.check_api_root("http://localhost:8080/") == "http://localhost:8080"
+    assert clonometer.check_api_root("") == clonometer.DEFAULT_API_ROOT
+    with pytest.raises(clonometer.ClonometerError, match="must start with https://"):
+        clonometer.check_api_root("http://api.example.com")
+
+
+def test_a_clear_text_api_root_is_refused_before_any_request(
+    fake_http, token_env, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv(clonometer.API_ROOT_ENV, "http://evil.example")
+    assert clonometer.main([REPO]) == 1
+    assert "https://" in capsys.readouterr().err
+    assert fake_http.requests == []
+
+
+def test_a_redirect_is_refused_and_the_token_never_reaches_the_other_host(
+    token_env, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A real local server answers 302 to a second server; the second must see nothing."""
+    import http.server
+    import threading
+
+    seen_by_target: list[str] = []
+
+    class Target(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            seen_by_target.append(self.headers.get("Authorization", ""))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+        def log_message(self, *args):  # noqa: D102
+            pass
+
+    target = http.server.HTTPServer(("127.0.0.1", 0), Target)
+    target_port = target.server_address[1]
+
+    class Redirector(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{target_port}/elsewhere")
+            self.end_headers()
+
+        def log_message(self, *args):  # noqa: D102
+            pass
+
+    redirector = http.server.HTTPServer(("127.0.0.1", 0), Redirector)
+    threads = [threading.Thread(target=s.serve_forever, daemon=True) for s in (target, redirector)]
+    for thread in threads:
+        thread.start()
+    try:
+        monkeypatch.setenv(
+            clonometer.API_ROOT_ENV, f"http://127.0.0.1:{redirector.server_address[1]}"
+        )
+        assert clonometer.main([REPO]) == 1
+        err = capsys.readouterr().err
+        assert err.count("\n") == 1 and "redirect" in err
+        assert seen_by_target == []
+    finally:
+        for server in (target, redirector):
+            server.shutdown()
+            server.server_close()
+
+
+def test_a_403_with_the_fallback_token_says_the_fallback_can_never_work(
+    fake_http, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv(clonometer.TOKEN_ENV, raising=False)
+    monkeypatch.setenv(clonometer.FALLBACK_TOKEN_ENV, "a-workflow-token")
+    fake_http.queue(http_error(403))
+    assert clonometer.main([REPO]) == 1
+    err = capsys.readouterr().err
+    assert "GITHUB_TOKEN can never read traffic" in err and "token input" in err
+
+
+def test_a_403_on_the_ledger_names_contents_read(
+    fake_http, token_env, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(403))
+    assert clonometer.main([REPO]) == 1
+    assert "Contents read" in capsys.readouterr().err
+
+
+def test_the_ledger_follows_a_renamed_repository_and_since_is_a_floor(
+    fake_http, token_env, frozen_today, tmp_path: Path
+) -> None:
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-10", 3, 1), ("2026-09-17", 4, 1)], count=7),
+        contents_response(ledger({"2026-09-16": {"count": 1, "uniques": 1}}, repo="owner/old")),
+    )
+    out_dir = tmp_path / "out"
+    assert clonometer.main([REPO, "--write", str(out_dir)]) == 0
+    written = json.loads((out_dir / "clones-ledger.json").read_text("utf-8"))
+    assert written["repo"] == REPO
+    assert written["since"] == "2026-09-10"
+    assert json.loads((out_dir / "clones.json").read_text("utf-8"))["since"] == "2026-09-10"
+
+
+def test_a_symlinked_output_directory_is_refused(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real, target_is_directory=True)
+    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
+    assert clonometer.main([REPO, "--write", str(link)]) == 1
+    assert "symbolic link" in capsys.readouterr().err
+    assert list(real.iterdir()) == []
+
+
+def test_short_has_a_billions_tier() -> None:
+    assert clonometer.short(999_950_000) == "1B"
+    assert clonometer.short(1_234_567_890) == "1.2B"
+    assert clonometer.short(9_999_500) == "10M"
+
+
+def test_the_guard_and_schema_messages_say_what_to_do(
+    fake_http, token_env, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 1, 1)], count=1),
+        contents_response(ledger({"2026-09-17": {"count": 10, "uniques": 1}})),
+    )
+    assert clonometer.main([REPO]) == 0  # max keeps 10, total never shrinks
+    fake_http.queue(
+        traffic_payload("clones", [], count=0),
+        contents_response({"schema": 2, "days": {}}),
+    )
+    assert clonometer.main([REPO]) == 1
+    assert "delete it there to start the count again" in capsys.readouterr().err

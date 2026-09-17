@@ -37,7 +37,29 @@ runs:
         # if something upstream forwarded it unmasked.
         echo "::add-mask::${CLONOMETER_TOKEN}"
         set -euo pipefail
+        # A composite action does not enforce a required input, so a missing
+        # secret arrives as an empty string. Say so here, before the script
+        # would fall back to the workflow token and fail with a message about
+        # a permission that token can never have.
+        if [ -z "${CLONOMETER_TOKEN}" ]; then
+          echo "the token input is empty; set it to a fine-grained personal access token with Administration read and Contents write on this repository, stored as a repository secret" >&2
+          exit 1
+        fi
         python3 "${GITHUB_ACTION_PATH}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}"
+        # The numbers on the run's summary page, so nobody has to open a log.
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          python3 - "${CLONOMETER_OUT}" >> "${GITHUB_STEP_SUMMARY}" <<'PY'
+        import json, pathlib, sys
+        out = pathlib.Path(sys.argv[1])
+        print("| Metric | Badge line | Last 14 days | Since |")
+        print("| --- | --- | --- | --- |")
+        for path in sorted(out.glob("*.json")):
+            if path.name.endswith("-ledger.json"):
+                continue
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            print(f"| {doc['metric']} | {doc['badge']} | {doc['window']['count']} | {doc['since']} |")
+        PY
+        fi
 
     - name: publish
       shell: bash
@@ -50,6 +72,21 @@ runs:
         echo "::add-mask::${CLONOMETER_TOKEN}"
         set -euo pipefail
 
+        # The token travels as a basic-auth header on each git call, the same
+        # shape actions/checkout uses, so it never appears in the remote URL,
+        # in a config file, or in any log line.
+        auth="$(printf 'x-access-token:%s' "${CLONOMETER_TOKEN}" | base64 | tr -d '\n')"
+        git_auth() { git -c http.extraheader="AUTHORIZATION: basic ${auth}" "$@"; }
+
+        # A force push over the repository's default branch would erase its
+        # history. Nothing a badge is worth, so refuse before touching anything.
+        default="$(git_auth ls-remote --symref "${CLONOMETER_REMOTE}" HEAD 2>/dev/null \
+          | sed -n 's|^ref: refs/heads/\(.*\)[[:space:]]HEAD$|\1|p' || true)"
+        if [ -n "${default}" ] && [ "${default}" = "${CLONOMETER_BRANCH}" ]; then
+          echo "refusing to force-push over ${CLONOMETER_BRANCH}, the repository's default branch; set the branch input to a storage branch such as badges" >&2
+          exit 1
+        fi
+
         # A throwaway directory under RUNNER_TEMP, not the checkout: the
         # storage branch has no history worth keeping, only the newest
         # numbers, so every run starts an orphan branch from scratch.
@@ -58,6 +95,15 @@ runs:
         git -C "${work}" config user.name 'github-actions[bot]'
         git -C "${work}" config user.email \
           '41898282+github-actions[bot]@users.noreply.github.com'
+
+        # Files already on the branch that this run did not produce stay as
+        # they are, so turning a metric off for a run does not erase the
+        # ledger it built. The checkout stages them without giving the new
+        # commit a parent.
+        if git_auth -C "${work}" fetch --quiet --depth 1 "${CLONOMETER_REMOTE}" \
+          "${CLONOMETER_BRANCH}" 2>/dev/null; then
+          git -C "${work}" checkout --quiet FETCH_HEAD -- .
+        fi
 
         files=""
         for source in "${CLONOMETER_OUT}"/*; do
@@ -74,9 +120,13 @@ runs:
         # Administration read, a permission a workflow token cannot hold.
         # Why force push: the branch carries only the latest numbers, so
         # each run's single commit replaces the one before it rather than
-        # accumulating a history nobody reads. The token travels as a
-        # basic-auth header on this one push, the same shape actions/checkout
-        # uses, so it never appears in the remote URL or in any log line.
-        auth="$(printf 'x-access-token:%s' "${CLONOMETER_TOKEN}" | base64 | tr -d '\n')"
-        git -C "${work}" -c http.extraheader="AUTHORIZATION: basic ${auth}" \
-          push --force --quiet "${CLONOMETER_REMOTE}" "HEAD:${CLONOMETER_BRANCH}"
+        # accumulating a history nobody reads.
+        if ! git_auth -C "${work}" push --force --quiet "${CLONOMETER_REMOTE}" \
+          "HEAD:${CLONOMETER_BRANCH}"; then
+          echo "the push to the ${CLONOMETER_BRANCH} branch was refused; the token needs Contents write on this repository" >&2
+          exit 1
+        fi
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Published${files} to the ${CLONOMETER_BRANCH} branch as commit $(git -C "${work}" rev-parse --short HEAD)." >> "${GITHUB_STEP_SUMMARY}"
+        fi

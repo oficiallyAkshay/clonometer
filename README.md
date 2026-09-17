@@ -87,6 +87,8 @@ jobs:
           token: ${{ secrets.TRAFFIC_TOKEN }}
 ```
 
+Then create the token it uses. On [the fine-grained token page](https://github.com/settings/personal-access-tokens/new) pick this repository only, give it Administration read and Contents write, and store the value under Settings, Secrets and variables, Actions, under the name the workflow reads, TRAFFIC_TOKEN. Press Run workflow once on the Actions tab and the branch exists.
+
 Then badge it however you like:
 
 ```
@@ -130,8 +132,9 @@ Once published, the same script prints the numbers for any repository your token
 
 | Command | What it prints |
 | --- | --- |
-| `pipx run clonometer owner/name` | `clones: 123 (14d), 50,123 (all-time), since 2026-09-17` |
-| `npx clonometer owner/name` | The same, through the npm launcher |
+| `uvx --from git+https://github.com/oficiallyAkshay/clonometer clonometer owner/name` | `clones: 61 (7d) • 50.1k (all-time), 123 in the last 14 days, since 2026-09-17` |
+| `pipx run clonometer owner/name` | The same, once the PyPI package exists |
+| `npx clonometer owner/name` | The same, once the npm package exists |
 
 ## How it compares
 
@@ -154,6 +157,10 @@ Prior art: [MShawon/github-clone-count-badge](https://github.com/MShawon/github-
 - A private repo keeps counting, but the badge renders only once the repo is public.
 - A PAT is required because a workflow token cannot read traffic.
 - Run it daily; anything past 13 days loses rows.
+- GitHub's traffic figures arrive about a day late, and shields caches a badge for a few minutes.
+- A day GitHub later revises downwards keeps its highest sample, so the total can only overstate, never understate.
+- Keep the concurrency group in the workflow; two runs at once would race for the branch.
+- The install line pins whatever commit main is at that moment; read it before trusting it.
 
 ## For agents
 
@@ -165,9 +172,9 @@ Prior art: [MShawon/github-clone-count-badge](https://github.com/MShawon/github-
 | `since` | date | The day the ledger started, UTC |
 | `updated` | date | The day this file was written, UTC |
 | `window.days` | int | Always `14`, the size of GitHub's window |
-| `window.count` | int | GitHub's own count for the window |
+| `window.count` | int | GitHub's own count for the window, as reported this run |
 | `window.uniques` | int | GitHub's own uniques for the window |
-| `last7` | int | Sum of the ledger's counts over the last seven days |
+| `last7` | int | Sum of the ledger's counts over the last seven days, so it never goes down |
 | `last7_short` | string | `last7` in the short form |
 | `total` | int | Sum of every day's count in the ledger |
 | `total_short` | string | `total` as `1,234`, `12.3k` or `1.2M` |

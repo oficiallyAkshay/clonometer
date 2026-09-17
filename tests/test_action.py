@@ -375,3 +375,134 @@ def test_end_to_end_a_403_from_traffic_leaves_the_branch_untouched(
     # publish either, the same way a real workflow never would. The bare
     # repository should show no sign that anything ran at all.
     assert _refs(bare_repo) == ""
+
+
+# --------------------------------------------------------------------------
+# Hardening: what the publish step refuses, keeps and says.
+# --------------------------------------------------------------------------
+
+
+def _first_run(tmp_path: Path, bare_repo: Path, fake_github, **overrides: str) -> dict[str, str]:
+    state, api = fake_github
+    state.set_traffic("clones", 12, 9, [("2026-09-16", 5, 4), ("2026-09-17", 7, 5)])
+    state.set_traffic("views", 20, 15, [("2026-09-16", 9, 7), ("2026-09-17", 11, 8)])
+    runner_temp = tmp_path / "runner-temp"
+    runner_temp.mkdir(exist_ok=True)
+    env = _env(
+        api=api,
+        out_dir=runner_temp / "clonometer",
+        branch="badges",
+        remote=bare_repo,
+        runner_temp=runner_temp,
+    )
+    env.update(overrides)
+    return env
+
+
+def test_turning_a_metric_off_for_a_run_keeps_its_files_and_ledger_on_the_branch(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    assert _run_step("count", env, tmp_path).returncode == 0
+    assert _run_step("publish", env, tmp_path).returncode == 0
+    views_ledger = _show(bare_repo, "badges", "views-ledger.json")
+
+    # Second run with views off: its files stay exactly as they were.
+    env["CLONOMETER_METRICS"] = "clones"
+    env["CLONOMETER_OUT"] = str(tmp_path / "runner-temp" / "second")
+    assert _run_step("count", env, tmp_path).returncode == 0
+    assert _run_step("publish", env, tmp_path).returncode == 0
+    assert _commit_count(bare_repo, "badges") == 1
+    assert _tree_files(bare_repo, "badges") == EXPECTED_FILES
+    assert _show(bare_repo, "badges", "views-ledger.json") == views_ledger
+
+    # Third run with views back on: the views ledger continues, not restarts.
+    env["CLONOMETER_METRICS"] = "clones,views"
+    env["CLONOMETER_OUT"] = str(tmp_path / "runner-temp" / "third")
+    assert _run_step("count", env, tmp_path).returncode == 0
+    assert _run_step("publish", env, tmp_path).returncode == 0
+    resumed = json.loads(_show(bare_repo, "badges", "views-ledger.json"))
+    assert resumed["since"] == json.loads(views_ledger)["since"]
+    assert set(resumed["days"]) >= set(json.loads(views_ledger)["days"])
+
+
+def test_publish_refuses_the_repositorys_default_branch(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    default = subprocess.run(
+        ["git", "-C", str(bare_repo), "symbolic-ref", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    seed = tmp_path / "seed"
+    subprocess.run(["git", "init", "--quiet", "-b", default, str(seed)], check=True)
+    (seed / "README.md").write_text("history worth keeping\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(seed), "add", "README.md"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(seed),
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "seed",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(seed), "push", "--quiet", str(bare_repo), f"HEAD:{default}"], check=True
+    )
+
+    env = _first_run(tmp_path, bare_repo, fake_github, CLONOMETER_BRANCH=default)
+    assert _run_step("count", env, tmp_path).returncode == 0
+    publish = _run_step("publish", env, tmp_path)
+    assert publish.returncode == 1
+    assert "default branch" in publish.stderr
+    assert _tree_files(bare_repo, default) == {"README.md"}
+    assert _commit_count(bare_repo, default) == 1
+
+
+def test_an_empty_token_input_fails_the_count_step_with_a_plain_message(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    env = _first_run(tmp_path, bare_repo, fake_github, CLONOMETER_TOKEN="")
+    count = _run_step("count", env, tmp_path)
+    assert count.returncode == 1
+    assert "token input is empty" in count.stderr
+    assert "GITHUB_TOKEN" not in count.stderr
+
+
+def test_a_refused_push_names_contents_write(tmp_path: Path, bare_repo: Path, fake_github) -> None:
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    assert _run_step("count", env, tmp_path).returncode == 0
+    env["CLONOMETER_REMOTE"] = str(tmp_path / "nowhere.git")
+    publish = _run_step("publish", env, tmp_path)
+    assert publish.returncode == 1
+    assert "Contents write" in publish.stderr
+    # The mask directive is consumed by the runner; on a bare shell it is plain output.
+    printed = "\n".join(
+        line
+        for line in (publish.stdout + publish.stderr).splitlines()
+        if "::add-mask::" not in line
+    )
+    assert TOKEN not in printed
+
+
+def test_both_steps_write_the_numbers_to_the_run_summary(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    summary = tmp_path / "summary.md"
+    env = _first_run(tmp_path, bare_repo, fake_github, GITHUB_STEP_SUMMARY=str(summary))
+    assert _run_step("count", env, tmp_path).returncode == 0
+    assert _run_step("publish", env, tmp_path).returncode == 0
+    text = summary.read_text(encoding="utf-8")
+    assert "| clones |" in text and "| views |" in text
+    assert "(7d)" in text and "(all-time)" in text
+    assert "Published" in text and "badges branch" in text
+    assert TOKEN not in text
