@@ -66,17 +66,55 @@ def test_action_yml_is_a_composite_action() -> None:
     assert _load_action()["runs"]["using"] == "composite"
 
 
-def test_action_yml_has_exactly_two_bash_steps_named_count_and_publish() -> None:
+def test_action_yml_has_a_fetch_step_then_two_bash_steps() -> None:
     steps = _steps()
-    assert [step["name"] for step in steps] == ["count", "publish"]
-    assert all(step["shell"] == "bash" for step in steps)
+    assert [step["name"] for step in steps] == ["fetch", "count", "publish"]
+    assert all(step["shell"] == "bash" for step in steps[1:])
+
+
+def test_the_fetch_step_clones_the_pinned_action_with_the_repo_wide_checkout_pin() -> None:
+    """The fetch is what makes a consumer run count as a clone of this repository."""
+    fetch = _step("fetch")
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    pin = fetch["uses"].split("@")[1]
+    assert fetch["uses"].startswith("actions/checkout@")
+    assert len(pin) == 40 and f"actions/checkout@{pin}" in ci
+    assert fetch["if"] == "github.action_repository != ''"
+    assert fetch["with"]["repository"] == "${{ github.action_repository }}"
+    assert fetch["with"]["ref"] == "${{ github.action_ref }}"
+    assert fetch["with"]["path"] == ".clonometer"
+    assert fetch["with"]["persist-credentials"] is False
+    assert fetch["with"]["fetch-depth"] == 1
+
+
+def test_the_count_step_runs_the_fetched_checkout_when_there_is_one(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    """With a checkout under the workspace the run uses it; without one, the action's own path."""
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    workspace = tmp_path / "workspace"
+    (workspace / ".clonometer").mkdir(parents=True)
+    (workspace / ".clonometer" / "clonometer.py").write_text(
+        "import sys; print('ran from the fetched checkout'); sys.exit(0)\n", encoding="utf-8"
+    )
+    env["GITHUB_WORKSPACE"] = str(workspace)
+    count = _run_step("count", env, tmp_path)
+    assert count.returncode == 0, count.stderr
+    assert "ran from the fetched checkout" in count.stdout
+
+    env["GITHUB_WORKSPACE"] = str(tmp_path / "empty")
+    count = _run_step("count", env, tmp_path)
+    assert count.returncode == 0, count.stderr
+    assert "ran from the fetched checkout" not in count.stdout
+    assert (tmp_path / "runner-temp" / "clonometer" / "clones.json").is_file()
 
 
 def test_neither_step_body_contains_a_github_expression() -> None:
     """A `${{ }}` inside `run:` would mean the body cannot run outside the
     Actions runner, which is exactly what the tests below need it to do."""
     for step in _steps():
-        assert "${{" not in step["run"]
+        if "run" in step:
+            assert "${{" not in step["run"]
 
 
 def test_count_step_calls_clonometer_with_write_branch_and_metrics() -> None:
