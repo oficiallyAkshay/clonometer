@@ -90,7 +90,7 @@ def test_the_fetch_step_clones_the_pinned_action_with_the_repo_wide_checkout_pin
 def test_the_count_step_runs_the_fetched_checkout_when_there_is_one(
     tmp_path: Path, bare_repo: Path, fake_github
 ) -> None:
-    """With a checkout under the workspace the run uses it; without one, the action's own path."""
+    """The context, not the workspace, decides which script runs."""
     env = _first_run(tmp_path, bare_repo, fake_github)
     workspace = tmp_path / "workspace"
     (workspace / ".clonometer").mkdir(parents=True)
@@ -98,11 +98,14 @@ def test_the_count_step_runs_the_fetched_checkout_when_there_is_one(
         "import sys; print('ran from the fetched checkout'); sys.exit(0)\n", encoding="utf-8"
     )
     env["GITHUB_WORKSPACE"] = str(workspace)
+    env["CLONOMETER_ACTION_REPOSITORY"] = "owner/clonometer"
     count = _run_step("count", env, tmp_path)
     assert count.returncode == 0, count.stderr
     assert "ran from the fetched checkout" in count.stdout
 
-    env["GITHUB_WORKSPACE"] = str(tmp_path / "empty")
+    # A local `uses: ./` has no action repository: the workspace file is
+    # ignored even though it is there, and the action's own script runs.
+    env["CLONOMETER_ACTION_REPOSITORY"] = ""
     count = _run_step("count", env, tmp_path)
     assert count.returncode == 0, count.stderr
     assert "ran from the fetched checkout" not in count.stdout

@@ -47,6 +47,7 @@ runs:
         CLONOMETER_OUT: ${{ runner.temp }}/clonometer
         CLONOMETER_BRANCH: ${{ inputs.branch }}
         CLONOMETER_METRICS: ${{ inputs.metrics }}
+        CLONOMETER_ACTION_REPOSITORY: ${{ github.action_repository }}
       run: |
         # Belt and braces: the token is already a secret in the caller's
         # workflow, but masking it here too means it never shows up even
@@ -61,10 +62,15 @@ runs:
           echo "the token input is empty; set it to a fine-grained personal access token with Administration read and Contents write on this repository, stored as a repository secret" >&2
           exit 1
         fi
-        # The fetched checkout when the fetch step ran, the action's own
-        # path otherwise (a local `uses: ./`).
-        home="${GITHUB_WORKSPACE:-.}/.clonometer"
-        [ -f "${home}/clonometer.py" ] || home="${GITHUB_ACTION_PATH}"
+        # The fetched checkout when the fetch step ran, which is exactly when
+        # the action has a repository name; the action's own path for a
+        # local `uses: ./`. Decided by the context, never by what happens
+        # to sit in the consumer's workspace.
+        if [ -n "${CLONOMETER_ACTION_REPOSITORY:-}" ]; then
+          home="${GITHUB_WORKSPACE}/.clonometer"
+        else
+          home="${GITHUB_ACTION_PATH}"
+        fi
         python3 "${home}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}"
         # The numbers on the run's summary page, so nobody has to open a log.
         if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
