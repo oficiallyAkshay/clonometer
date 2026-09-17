@@ -36,6 +36,7 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -87,7 +88,10 @@ def check_api_root(api_root: str) -> str:
     it to the network.
     """
     root = api_root.strip().rstrip("/") or DEFAULT_API_ROOT
-    if root.startswith("https://") or root.startswith(("http://localhost", "http://127.0.0.1")):
+    parts = urllib.parse.urlsplit(root)
+    if parts.scheme == "https" and parts.hostname:
+        return root
+    if parts.scheme == "http" and parts.hostname in ("localhost", "127.0.0.1"):
         return root
     raise ClonometerError(f"{API_ROOT_ENV} must start with https:// (got {root!r})")
 

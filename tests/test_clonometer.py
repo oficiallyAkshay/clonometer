@@ -818,8 +818,16 @@ def test_the_api_root_must_be_https_unless_it_is_the_local_machine() -> None:
     assert clonometer.check_api_root("http://127.0.0.1:8080") == "http://127.0.0.1:8080"
     assert clonometer.check_api_root("http://localhost:8080/") == "http://localhost:8080"
     assert clonometer.check_api_root("") == clonometer.DEFAULT_API_ROOT
-    with pytest.raises(clonometer.ClonometerError, match="must start with https://"):
-        clonometer.check_api_root("http://api.example.com")
+    for bad in (
+        "http://api.example.com",
+        "http://localhost.evil.example",
+        "http://127.0.0.1.evil.example",
+        "http://evil.example/localhost",
+        "ftp://localhost",
+        "https://",
+    ):
+        with pytest.raises(clonometer.ClonometerError, match="must start with https://"):
+            clonometer.check_api_root(bad)
 
 
 def test_a_clear_text_api_root_is_refused_before_any_request(

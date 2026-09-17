@@ -506,3 +506,47 @@ def test_both_steps_write_the_numbers_to_the_run_summary(
     assert "(7d)" in text and "(all-time)" in text
     assert "Published" in text and "badges branch" in text
     assert TOKEN not in text
+
+
+def test_a_symlink_planted_on_the_branch_is_replaced_not_followed(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    """A previous branch state is data, not something the publish step trusts."""
+    victim = tmp_path / "victim.txt"
+    victim.write_text("untouched\n", encoding="utf-8")
+    seed = tmp_path / "seed"
+    subprocess.run(["git", "init", "--quiet", "-b", "badges", str(seed)], check=True)
+    (seed / "clones.json").symlink_to(victim)
+    subprocess.run(["git", "-C", str(seed), "add", "clones.json"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(seed),
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "planted",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(seed), "push", "--quiet", str(bare_repo), "HEAD:badges"], check=True
+    )
+
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    assert _run_step("count", env, tmp_path).returncode == 0
+    assert _run_step("publish", env, tmp_path).returncode == 0
+    assert victim.read_text(encoding="utf-8") == "untouched\n"
+    mode = subprocess.run(
+        ["git", "-C", str(bare_repo), "ls-tree", "badges", "clones.json"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()[0]
+    assert mode == "100644"
+    assert json.loads(_show(bare_repo, "badges", "clones.json"))["metric"] == "clones"
