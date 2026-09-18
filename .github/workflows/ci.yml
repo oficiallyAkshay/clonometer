@@ -112,7 +112,7 @@ jobs:
         # against.
         run: |
           git fetch origin main
-          uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=90
+          uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=100
 
   # The one context the branch ruleset requires. It exists on every run, forks
   # included, and it is the only job name the ruleset needs to know.

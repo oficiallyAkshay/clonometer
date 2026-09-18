@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import drawsvg as draw
 import pytest
 
 from scripts import draw_loop
@@ -81,3 +82,23 @@ def test_an_empty_cycle_is_refused() -> None:
     bad["cycle"] = []
     with pytest.raises(ValueError, match="cycle"):
         draw_loop.render(bad)
+
+
+def test_render_does_not_add_a_second_newline_when_the_svg_already_has_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """drawsvg serialises through a recursive self-call with an open file handle;
+    only the outer, file-less call is the one render() sees, so only that call
+    gets the extra newline appended."""
+    spec = json.loads(draw_loop.SPEC.read_text("utf-8"))
+    original_as_svg = draw.Drawing.as_svg
+
+    def as_svg_with_trailing_newline(self, output_file=None, *args, **kwargs):
+        if output_file is None:
+            return original_as_svg(self, None, *args, **kwargs) + "\n"
+        return original_as_svg(self, output_file, *args, **kwargs)
+
+    monkeypatch.setattr(draw.Drawing, "as_svg", as_svg_with_trailing_newline)
+    svg = draw_loop.render(spec)
+    assert svg.endswith("\n")
+    assert not svg.endswith("\n\n")
