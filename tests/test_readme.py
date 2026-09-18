@@ -31,6 +31,11 @@ RECIPE_URLS = (
     ),
 )
 
+GIST_RECIPE_URL = (
+    "https://img.shields.io/badge/dynamic/json?url=https://gist.githubusercontent.com/"
+    "OWNER/GIST_ID/raw/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"
+)
+
 LINK_RE = re.compile(r'(?:href|src)="([^"]+)"|\]\(([^)\s]+)\)')
 
 
@@ -51,9 +56,18 @@ def _local_links(text: str) -> list[str]:
     ]
 
 
-def test_the_readme_carries_the_badge_recipe() -> None:
-    text = README.read_text("utf-8")
+def test_contributing_carries_the_badge_recipe() -> None:
+    """The generic OWNER/REPO and OWNER/GIST_ID recipes live in CONTRIBUTING, not the README."""
+    text = CONTRIBUTING.read_text("utf-8")
     assert RECIPE_URLS[0] in text
+    assert GIST_RECIPE_URL in text
+
+
+def test_the_readme_ships_no_generic_recipe_placeholder() -> None:
+    """The README shows only its own live badges; OWNER/REPO belongs to CONTRIBUTING."""
+    text = README.read_text("utf-8")
+    assert "OWNER/REPO" not in text
+    assert "OWNER/GIST_ID" not in text
 
 
 def test_the_readme_ships_numbers_not_a_shields_endpoint() -> None:
@@ -96,14 +110,15 @@ def test_the_hero_graphic_is_committed_offline_and_shows_the_belt() -> None:
     assert "@import" not in body and "<image" not in body
 
 
-def test_the_consumer_workflow_file_is_linked_and_fetched_by_the_install_line() -> None:
-    """One source for the workflow: the README links the file its one-liner fetches."""
+def test_the_consumer_workflow_file_is_linked_before_features() -> None:
+    """One source for the workflow: the README links the file the install sentence names."""
     text = README.read_text("utf-8")
     template = REPO_ROOT / ".github" / "consumer-workflow.yml"
     assert template.is_file()
     assert "(.github/consumer-workflow.yml)" in text
-    assert "consumer-workflow.yml | sed" in text
-    assert text.index("consumer-workflow.yml | sed") < text.index("## Features")
+    assert text.index("(.github/consumer-workflow.yml)") < text.index("## Features")
+    assert "TRAFFIC_TOKEN" in text
+    assert "mkdir" not in text and "curl" not in text
     assert "secrets.TRAFFIC_TOKEN" in template.read_text("utf-8")
 
 

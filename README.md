@@ -1,13 +1,10 @@
 <h1 align="center">📈 clonometer</h1>
 
 <p align="center">
-  <b>GitHub forgets your clones after 14 days. clonometer does not.</b>
-  <br>
-  A lifetime clone count for any repository, in a JSON file you can badge any way you like.
+  <b>GitHub keeps your clone count for 14 days. clonometer keeps it for good.</b>
 </p>
 
 <p align="center">
-  <a href=".github/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/oficiallyAkshay/clonometer/ci.yml?branch=main&logo=githubactions&logoColor=white&label=CI"></a>
   <a href="https://codecov.io/gh/oficiallyAkshay/clonometer"><img alt="coverage" src="https://img.shields.io/codecov/c/github/oficiallyAkshay/clonometer?logo=codecov&logoColor=white"></a>
   <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/license-MIT-2f6f4e?logo=opensourceinitiative&logoColor=white"></a>
   <a href="pyproject.toml"><img alt="Python 3.11 or newer" src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white"></a>
@@ -27,84 +24,60 @@
   <b><a href="https://github.com/oficiallyAkshay/clonometer/blob/badges/clones.json">See this repository's own numbers file</a></b>
 </p>
 
-GitHub only remembers the last 14 days of clone traffic, then the number is gone. clonometer samples that window once a day and keeps the total forever.
+clonometer samples GitHub's clone count every day and keeps a lifetime ledger on a branch of your own repository. It writes a numbers file that any badge can read.
 
-```bash
-mkdir -p .github/workflows && curl -fsSL https://raw.githubusercontent.com/oficiallyAkshay/clonometer/main/.github/consumer-workflow.yml | sed "s|<sha>|$(git ls-remote https://github.com/oficiallyAkshay/clonometer.git HEAD | cut -c1-40)|" > .github/workflows/clonometer.yml
-```
-
-One line writes [the workflow](.github/consumer-workflow.yml), pinned to the current commit. Add the token from the table below, run it once, pick a badge.
+Add [the workflow](.github/consumer-workflow.yml) to your repository pinned to a commit, store a token as `TRAFFIC_TOKEN`, run it once.
 
 ## Features
 
-| Feature | What it means |
-| --- | --- |
-| **Honest numbers** | Never goes down, uniques are never summed across days |
-| **Your badge, your way** | Label, colour, style and logo are yours; clonometer ships numbers |
-| **Stored on your repo** | The ledger lives on a branch of your own repository, no other repo; a private one can mirror its numbers to a gist for the badge |
-| **Views too** | One input adds page views beside clones |
+- 🔢 **Honest numbers.** Never goes down, uniques are never summed across days.
+- 🎨 **Your badge, your way.** Label, colour, style and logo are yours, clonometer ships the numbers.
+- 🗄️ **Stored on your repo.** The ledger lives on a branch of your own repository, no other repo.
+- 👀 **Views too.** One input adds page views beside clones.
+- 🔒 **Private repositories work.** The gist mirror publishes a public numbers file for a badge to read.
 
 ## Badges
 
-Live from this repository's own numbers file. Click one for its recipe.
+Live from this repository's own numbers file. The recommended shape is seven days alongside all time, shown first. Click a badge for its recipe.
 
 <p align="center">
-  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"><img alt="Clones, seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"></a>
-  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"><img alt="Views, the same" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"></a>
-  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white"><img alt="All time only" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white"></a>
-  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.last7_short&label=clones&suffix=%20this%20week&logo=github&logoColor=white"><img alt="Last seven days only" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.last7_short&label=clones&suffix=%20this%20week&logo=github&logoColor=white"></a>
-  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&style=for-the-badge&logo=github"><img alt="Any style shields has" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&style=for-the-badge&logo=github"></a>
-  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&color=6f42c1&logo=github&logoColor=white"><img alt="Any colour" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&color=6f42c1&logo=github&logoColor=white"></a>
+  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"><img alt="Clones, seven days and all time, recommended" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"></a>
+  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"><img alt="Views, seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"></a>
+  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white"><img alt="Clones, all time only" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white"></a>
+  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.last7_short&label=clones&suffix=%20this%20week&logo=github&logoColor=white"><img alt="Clones, seven days only" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.last7_short&label=clones&suffix=%20this%20week&logo=github&logoColor=white"></a>
+  <a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.window_short&label=clones&suffix=%20(github%2014d)&logo=github&logoColor=white"><img alt="GitHub's own 14-day window count" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.window_short&label=clones&suffix=%20(github%2014d)&logo=github&logoColor=white"></a>
 </p>
 
-```
-https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white
-```
+## Configuration
 
-Swap clones for views, point the query at any key in the file, and add any style or colour shields offers.
+- **Metrics.** Count clones alone, or clones and views together.
+- **Branch.** Any branch name holds the ledger, except your default branch.
+- **Gist.** A private repository needs its numbers mirrored to a public gist before a badge can read them.
 
-A private repository sets the gist input and points the badge at the gist instead, since shields cannot read a private branch:
+## Security
 
-```
-https://img.shields.io/badge/dynamic/json?url=https://gist.githubusercontent.com/OWNER/GIST_ID/raw/clones.json&query=$.badge&label=clones&logo=github&logoColor=white
-```
+**Needs.** One fine-grained token scoped to this repository, with Administration read and Contents write. Optionally, a classic token with only the gist scope.
 
-## Configuration and security
+**Does.** Reads the traffic endpoints, pushes one commit to your storage branch, and PATCHes your gist if you set one. The token travels only as a header, never in a URL, a config file or a log.
 
-| Input | Default | Meaning |
-| --- | --- | --- |
-| `token` | required | A [fine-grained token](https://github.com/settings/personal-access-tokens/new) for this repository only, Administration read and Contents write, stored as the Actions secret TRAFFIC_TOKEN |
-| `branch` | `badges` | Storage branch, always one commit, never your default branch |
-| `metrics` | `clones` | `clones` or `clones,views` |
-| `gist` | off | Id of a gist to mirror the numbers files into, for a private repository; the ledger stays on the branch. Make the gist secret, since the numbers file carries the repository name |
-| `gist_token` | `token` | A [classic token](https://github.com/settings/tokens/new?scopes=gist&description=clonometer%20gist) with only the gist scope, stored as the Actions secret GIST_TOKEN; a fine-grained token cannot write a gist |
+**Never.** No third-party service, no telemetry, no other repository, no dependencies. Refuses plain http, redirects, your default branch and symlinks.
 
-### What leaves your machine
-
-| What | Where it goes | The guard |
-| --- | --- | --- |
-| The token | Up to two requests to the GitHub API per metric, traffic and the ledger read, plus one gist PATCH when the gist input is set, plus one push to your own repository | Never in a URL or a log; redirects and plain http refused |
-| The numbers | One commit on your storage branch, force pushed | Your default branch is refused |
-| The gist token | One PATCH to the gist you name, numbers files only, never the ledger | Off unless the gist input is set; never in a URL or a log |
-| Nothing else | No dependencies, no telemetry, no identity in the files | Standard library only; a secrets scan and a prose gate on every commit |
+**Check.** A pinned commit, tests at 100 percent coverage, and the gates in CONTRIBUTING.
 
 ## How it compares
 
-| | [github-clone-count-badge](https://github.com/MShawon/github-clone-count-badge) | [github-repo-stats](https://github.com/jgehrcke/github-repo-stats) | clonometer |
+| | clonometer | [MShawon/github-clone-count-badge](https://github.com/MShawon/github-clone-count-badge) | [jgehrcke/github-repo-stats](https://github.com/jgehrcke/github-repo-stats) |
 | --- | --- | --- | --- |
-| Lifetime count | Yes | Yes | Yes |
-| One line in a workflow | No, paste its workflow | Yes | Yes |
-| Where the data lives | A gist | A data branch of whichever repository runs it, this one by default | A branch of this repository |
-| What you get | One badge | Reports and charts | Numbers files, any badge |
-| Counts views too | No | Yes | Yes |
-| Token needs | Traffic, plus gist write | Traffic, plus push to the repository that runs it | Traffic, plus push to this repository; gist write only if you mirror |
+| Lifetime clone count | Yes | Yes | Yes |
+| Lifetime view count | Yes | No | Yes |
+| One line in a workflow | Yes | No, paste its workflow | Yes |
+| Approach | A branch of your repository | A gist | A data branch of the repository that runs it |
+| What you get | A numbers file, any badge | One clone count badge, fixed | Reports and charts |
+| Token needs | One token on your repository | Traffic plus a gist token | Traffic plus push |
 
 ## Limits
 
 - Counting starts the day you enable it, plus the 14 days GitHub still had.
-- Clones include bots and CI: a repository whose scheduled job checks itself out every two days showed 7 clones and 1 unique in 15 days. GitHub's figures arrive a day late; a day GitHub later revises down keeps its highest sample.
-- Uniques are per day and never added up.
-- A private repository keeps counting; its badge renders once it is public, or right away through the gist input.
-- Run it daily with the concurrency group kept, since a gap past 13 days loses rows, and read the commit the install line pins before trusting it.
-- GitHub disables a scheduled workflow on a public repository after 60 days with no commit to the repository; any commit, on any branch, resets that clock.
-- Every run of the action fetches this repository with git, so clonometer's own clone count measures runs of the action as much as people cloning it; uniques barely move, since runners share addresses. That fetch needs no token of yours and works from a private repository, as long as clonometer itself stays public.
+- Figures arrive a day late and include bots and CI, runner fetches of this action included.
+- A private repository counts, but its badge needs the gist mirror.
+- Scheduled workflows stop after 60 days without a commit, and a gap past 13 days loses rows.

@@ -74,6 +74,13 @@ The layout.
 | `clones.json`, `clones-ledger.json` | The numbers file above and its ledger |
 | `views.json`, `views-ledger.json` | The same for views, when views are on |
 
+The recipe behind every badge in the README: point shields at the numbers file, on the storage branch for a public repository or the gist mirror for a private one.
+
+```
+https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/OWNER/REPO/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white
+https://img.shields.io/badge/dynamic/json?url=https://gist.githubusercontent.com/OWNER/GIST_ID/raw/clones.json&query=$.badge&label=clones&logo=github&logoColor=white
+```
+
 ```json
 {"schema": 1, "repo": "owner/name", "since": "2026-09-17", "days": {"2026-09-17": {"count": 12, "uniques": 9}}}
 ```
