@@ -15,15 +15,20 @@ from __future__ import annotations
 
 import base64
 import http.client
+import http.server
 import io
 import json
+import threading
 import urllib.error
 import urllib.request
-from pathlib import Path
+from typing import TYPE_CHECKING, Self
 
 import pytest
 
 import clonometer
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 REPO = "oficiallyAkshay/clonometer"
 TODAY = "2026-09-17"
@@ -32,10 +37,10 @@ TODAY = "2026-09-17"
 class FakeResponse(io.BytesIO):
     """Enough of an http response for ``json.load`` inside a ``with``."""
 
-    def __enter__(self) -> FakeResponse:
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc: object) -> None:
+    def __exit__(self, *_exc: object) -> None:
         self.close()
 
 
@@ -356,10 +361,10 @@ class _BrokenBodyResponse:
     def __init__(self, error: Exception) -> None:
         self._error = error
 
-    def __enter__(self) -> _BrokenBodyResponse:
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc: object) -> None:
+    def __exit__(self, *_exc: object) -> None:
         return None
 
     def read(self) -> bytes:
@@ -375,7 +380,7 @@ def test_a_connection_that_drops_while_reading_the_body_is_refused_with_the_url(
     monkeypatch: pytest.MonkeyPatch, error: Exception
 ) -> None:
     """Headers can arrive and the body can still fail: a timeout here is an OSError too."""
-    monkeypatch.setattr(clonometer, "_open", lambda request: _BrokenBodyResponse(error))
+    monkeypatch.setattr(clonometer, "_open", lambda _request: _BrokenBodyResponse(error))
     url = f"{clonometer.DEFAULT_API_ROOT}/repos/{REPO}/traffic/clones?per=day"
     with pytest.raises(clonometer.ClonometerError, match="could not be read") as excinfo:
         clonometer._request(url, "a-token")
@@ -386,7 +391,7 @@ def test_a_body_read_failure_is_one_line_not_a_traceback(
     monkeypatch: pytest.MonkeyPatch, token_env, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(
-        clonometer, "_open", lambda request: _BrokenBodyResponse(TimeoutError("timed out"))
+        clonometer, "_open", lambda _request: _BrokenBodyResponse(TimeoutError("timed out"))
     )
     assert clonometer.main([REPO]) == 1
     err = capsys.readouterr().err
@@ -524,7 +529,7 @@ def test_cli_read_only_prints_the_window_and_lifetime_and_writes_nothing(
     monkeypatch.setattr(
         clonometer,
         "write",
-        lambda *a, **k: (_ for _ in ()).throw(
+        lambda *_a, **_k: (_ for _ in ()).throw(
             AssertionError("write must not be called in read-only mode")
         ),
     )
@@ -538,7 +543,7 @@ def test_cli_read_only_prints_the_window_and_lifetime_and_writes_nothing(
 
 def test_cli_read_only_never_calls_write_even_on_success(fake_http, token_env, monkeypatch) -> None:
     calls: list[object] = []
-    monkeypatch.setattr(clonometer, "write", lambda *a, **k: calls.append(a))
+    monkeypatch.setattr(clonometer, "write", lambda *_a, **_k: calls.append(_a))
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 1, 1)]),
         http_error(404),
@@ -803,7 +808,7 @@ def test_cli_write_mode_writes_nothing_when_the_guard_refuses_a_shrinking_total(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Merge can only grow a total, so this forces the refusal by faking merge itself."""
-    monkeypatch.setattr(clonometer, "merge", lambda previous, rows: ledger({}, since=TODAY))
+    monkeypatch.setattr(clonometer, "merge", lambda _previous, _rows: ledger({}, since=TODAY))
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 1, 1)]),
         contents_response(ledger({"2026-09-01": {"count": 500, "uniques": 1}})),
@@ -909,6 +914,15 @@ def test_the_api_root_must_be_https_unless_it_is_the_local_machine() -> None:
             clonometer.check_api_root(bad)
 
 
+def test_open_refuses_a_non_http_request_as_a_second_line_of_defense() -> None:
+    """_open re-checks the scheme itself, even though check_api_root already filtered it out."""
+    request = urllib.request.Request(  # noqa: S310 -- this test targets _open's own scheme check
+        "ftp://localhost/ignored"
+    )
+    with pytest.raises(clonometer.ClonometerError, match="refusing to open"):
+        clonometer._open(request)
+
+
 def test_a_clear_text_api_root_is_refused_before_any_request(
     fake_http, token_env, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -922,31 +936,28 @@ def test_a_redirect_is_refused_and_the_token_never_reaches_the_other_host(
     token_env, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """A real local server answers 302 to a second server; the second must see nothing."""
-    import http.server
-    import threading
-
     seen_by_target: list[str] = []
 
     class Target(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):  # noqa: N802
+        def do_GET(self):
             seen_by_target.append(self.headers.get("Authorization", ""))
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"{}")
 
-        def log_message(self, *args):  # noqa: D102
+        def log_message(self, *args):
             pass
 
     target = http.server.HTTPServer(("127.0.0.1", 0), Target)
     target_port = target.server_address[1]
 
     class Redirector(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):  # noqa: N802
+        def do_GET(self):
             self.send_response(302)
             self.send_header("Location", f"http://127.0.0.1:{target_port}/elsewhere")
             self.end_headers()
 
-        def log_message(self, *args):  # noqa: D102
+        def log_message(self, *args):
             pass
 
     redirector = http.server.HTTPServer(("127.0.0.1", 0), Redirector)
@@ -1028,7 +1039,7 @@ def patch_request_response(*, status: int = 200) -> object:
 
 
 # --------------------------------------------------------------------------
-# CLI: --gist
+# CLI: the gist flag
 # --------------------------------------------------------------------------
 
 

@@ -10,17 +10,25 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from scripts import draw_loop
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 README = REPO_ROOT / "README.md"
 CONTRIBUTING = REPO_ROOT / ".github" / "CONTRIBUTING.md"
 
 RECIPE_URLS = (
-    "https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/"
-    "OWNER/REPO/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white",
-    "https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/"
-    "OWNER/REPO/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white",
-    "https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/"
-    "OWNER/REPO/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time",
+    (
+        "https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/"
+        "OWNER/REPO/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"
+    ),
+    (
+        "https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/"
+        "OWNER/REPO/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"
+    ),
+    (
+        "https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/"
+        "OWNER/REPO/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time"
+    ),
 )
 
 LINK_RE = re.compile(r'(?:href|src)="([^"]+)"|\]\(([^)\s]+)\)')
@@ -129,6 +137,4 @@ def test_the_readme_wears_its_own_badges_made_from_the_first_two_recipes() -> No
 
 def test_the_hero_graphic_matches_its_committed_spec() -> None:
     """The SVG is drawn from the spec beside it; a stale SVG fails here, not in a reader's eye."""
-    from scripts import draw_loop
-
     assert draw_loop.main(["--check"]) == 0

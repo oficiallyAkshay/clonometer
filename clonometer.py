@@ -50,9 +50,9 @@ import urllib.request
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-TOKEN_ENV = "CLONOMETER_TOKEN"
-FALLBACK_TOKEN_ENV = "GITHUB_TOKEN"
-GIST_TOKEN_ENV = "CLONOMETER_GIST_TOKEN"
+TOKEN_ENV = "CLONOMETER_TOKEN"  # noqa: S105 -- an env var name, not a secret value
+FALLBACK_TOKEN_ENV = "GITHUB_TOKEN"  # noqa: S105 -- an env var name, not a secret value
+GIST_TOKEN_ENV = "CLONOMETER_GIST_TOKEN"  # noqa: S105 -- an env var name, not a secret value
 API_ROOT_ENV = "CLONOMETER_API"
 DEFAULT_API_ROOT = "https://api.github.com"
 
@@ -67,6 +67,18 @@ BULLET = chr(0x2022)
 # runner for the job's whole timeout.
 TIMEOUT_SECONDS = 30
 
+HTTP_NOT_FOUND = 404
+HTTP_FORBIDDEN = 403
+# A ledger day key's exact length: "YYYY-MM-DD".
+ISO_DATE_LENGTH = 10
+# Below this, short() keeps every digit; at and above it, short() switches to
+# one decimal place with a k/M/B suffix.
+SHORT_FORM_THRESHOLD = 10_000
+THOUSAND = 1_000
+# A gist id is hexadecimal; GitHub's are 32 characters, but this allows some room.
+GIST_ID_MIN_LENGTH = 20
+GIST_ID_MAX_LENGTH = 40
+
 
 class ClonometerError(Exception):
     """A failure the caller prints in one line and exits on."""
@@ -75,18 +87,35 @@ class ClonometerError(Exception):
 class _NoRedirects(urllib.request.HTTPRedirectHandler):
     """Refuse every redirect: a token must never follow a 3xx to another host."""
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
-        raise ClonometerError(
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        _fp: object,
+        _code: int,
+        _msg: object,
+        _headers: object,
+        newurl: str,
+    ) -> None:
+        message = (
             f"{req.full_url} answered with a redirect to {newurl}; "
             "clonometer does not follow redirects while carrying a token"
         )
+        raise ClonometerError(message)
 
 
 _OPENER = urllib.request.build_opener(_NoRedirects)
 
 
-def _open(request: urllib.request.Request):
-    """The one call that reaches the network; tests replace this function."""
+def _open(request: urllib.request.Request) -> http.client.HTTPResponse:
+    """The one call that reaches the network; tests replace this function.
+
+    ``check_api_root`` already refuses anything but https (or http to the
+    local machine, for tests), but that guard lives one call away from the
+    open itself; this one checks the scheme again, right where the network
+    call actually happens.
+    """
+    if request.type not in ("http", "https"):
+        raise ClonometerError(f"refusing to open a {request.type!r} URL")
     return _OPENER.open(request, timeout=TIMEOUT_SECONDS)
 
 
@@ -125,7 +154,9 @@ def _request(url: str, token: str, method: str = "GET", body: dict | None = None
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
-    request = urllib.request.Request(url, data=data, headers=headers, method=method)
+    request = urllib.request.Request(  # noqa: S310 -- _open checks the scheme before opening it
+        url, data=data, headers=headers, method=method
+    )
     try:
         response = _open(request)
     except urllib.error.HTTPError:
@@ -162,7 +193,11 @@ def today_utc() -> str:
 
 
 def fetch_traffic(
-    api_root: str, repo: str, token: str, metric: str, token_source: str = TOKEN_ENV
+    api_root: str,
+    repo: str,
+    token: str,
+    metric: str,
+    token_source: str = TOKEN_ENV,
 ) -> dict:
     """The decoded traffic payload for one metric ('clones' or 'views').
 
@@ -184,10 +219,10 @@ def fetch_traffic(
             else:
                 fix = "the token needs Administration read on this repository"
             raise ClonometerError(
-                f"the {metric} endpoint answered HTTP {error.code} for {repo}; {fix}"
+                f"the {metric} endpoint answered HTTP {error.code} for {repo}; {fix}",
             ) from error
         raise ClonometerError(
-            f"the {metric} endpoint answered HTTP {error.code} for {repo}"
+            f"the {metric} endpoint answered HTTP {error.code} for {repo}",
         ) from error
     if not isinstance(payload, dict):
         raise ClonometerError(f"the {metric} endpoint answered with something other than an object")
@@ -200,7 +235,12 @@ def fetch_traffic(
 
 
 def read_ledger(
-    api_root: str, repo: str, branch: str, token: str, file_name: str, today: str
+    api_root: str,
+    repo: str,
+    branch: str,
+    token: str,
+    file_name: str,
+    today: str,
 ) -> dict:
     """The previous ledger, or a freshly started one when there is none yet.
 
@@ -217,23 +257,27 @@ def read_ledger(
     try:
         payload = _get_json(url, token)
     except urllib.error.HTTPError as error:
-        if error.code == 404:
+        if error.code == HTTP_NOT_FOUND:
             return {"schema": 1, "repo": repo, "since": today, "days": {}}
-        hint = "; the token needs Contents read on this repository" if error.code == 403 else ""
+        hint = (
+            "; the token needs Contents read on this repository"
+            if error.code == HTTP_FORBIDDEN
+            else ""
+        )
         raise ClonometerError(
-            f"could not read {file_name} from the {branch} branch: HTTP {error.code}{hint}"
+            f"could not read {file_name} from the {branch} branch: HTTP {error.code}{hint}",
         ) from error
     if not isinstance(payload, dict) or "content" not in payload:
         raise ClonometerError(
             f"GitHub returned {file_name} without its contents; "
-            "a file over 1 MB is read that way, and this one should be far smaller"
+            "a file over 1 MB is read that way, and this one should be far smaller",
         )
     try:
         raw = base64.b64decode(payload["content"])
         ledger = json.loads(raw)
     except (ValueError, TypeError) as error:
         raise ClonometerError(
-            f"{file_name} on the {branch} branch is not valid JSON: {error}"
+            f"{file_name} on the {branch} branch is not valid JSON: {error}",
         ) from error
     if (
         not isinstance(ledger, dict)
@@ -243,7 +287,7 @@ def read_ledger(
     ):
         raise ClonometerError(
             f"{file_name} on the {branch} branch is not a ledger clonometer wrote; "
-            "restore a good copy, or delete it there to start the count again"
+            "restore a good copy, or delete it there to start the count again",
         )
     return ledger
 
@@ -254,7 +298,7 @@ def _is_date(value: object) -> bool:
         date.fromisoformat(str(value))
     except ValueError:
         return False
-    return isinstance(value, str) and len(value) == 10
+    return isinstance(value, str) and len(value) == ISO_DATE_LENGTH
 
 
 def _valid_day(value: object) -> bool:
@@ -344,7 +388,7 @@ def guard(new_total: int, old_total: int) -> None:
         raise ClonometerError(
             f"the new lifetime total ({new_total}) is smaller than the previous total "
             f"({old_total}); refusing to write. If the ledger on the branch is wrong, "
-            "delete it there to start the count again"
+            "delete it there to start the count again",
         )
 
 
@@ -357,18 +401,16 @@ def short(n: int) -> str:
     digit count stops being the interesting part of the number; a trailing
     '.0' is dropped so round figures read as round figures.
     """
-    if n < 10_000:
+    if n < SHORT_FORM_THRESHOLD:
         return f"{n:,}"
-    value, suffix = n / 1_000, "k"
+    value, suffix = n / THOUSAND, "k"
     # Decided after rounding, so 999,950 reads as 1M rather than 1000k.
-    if round(value, 1) >= 1_000:
+    if round(value, 1) >= THOUSAND:
         value, suffix = n / 1_000_000, "M"
-    if round(value, 1) >= 1_000:
+    if round(value, 1) >= THOUSAND:
         value, suffix = n / 1_000_000_000, "B"
     text = f"{value:.1f}"
-    if text.endswith(".0"):
-        text = text[:-2]
-    return f"{text}{suffix}"
+    return text.removesuffix(".0") + suffix
 
 
 def numbers(
@@ -433,7 +475,9 @@ def write(out_dir: Path, metric: str, numbers_doc: dict, ledger_doc: dict) -> tu
 
 def _valid_gist_id(value: str) -> bool:
     """True for a plausible gist id: hexadecimal, 20 to 40 characters long."""
-    return 20 <= len(value) <= 40 and all(c in "0123456789abcdefABCDEF" for c in value)
+    return GIST_ID_MIN_LENGTH <= len(value) <= GIST_ID_MAX_LENGTH and all(
+        c in "0123456789abcdefABCDEF" for c in value
+    )
 
 
 def publish_gist(api_root: str, gist_id: str, token: str, files: dict[str, str]) -> None:
@@ -459,10 +503,10 @@ def publish_gist(api_root: str, gist_id: str, token: str, files: dict[str, str])
             raise ClonometerError(
                 f"the gist endpoint answered HTTP {error.code} for {gist_id}; the gist token "
                 "needs the gist scope of a classic token (a fine-grained token cannot write "
-                "gists), and the gist id must exist"
+                "gists), and the gist id must exist",
             ) from error
         raise ClonometerError(
-            f"the gist endpoint answered HTTP {error.code} for {gist_id}"
+            f"the gist endpoint answered HTTP {error.code} for {gist_id}",
         ) from error
 
 
@@ -482,7 +526,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("repo", help="the repository, as owner/name")
     parser.add_argument(
-        "--write", metavar="DIR", help="write the numbers and ledger files into DIR"
+        "--write",
+        metavar="DIR",
+        help="write the numbers and ledger files into DIR",
     )
     parser.add_argument(
         "--branch",
@@ -519,7 +565,7 @@ def _compute(
         raise ClonometerError(f"the repository must be given as owner/name, got {args.repo!r}")
     if args.gist and not _valid_gist_id(args.gist):
         raise ClonometerError(
-            f"--gist must be a hexadecimal id 20 to 40 characters long, got {args.gist!r}"
+            f"--gist must be a hexadecimal id 20 to 40 characters long, got {args.gist!r}",
         )
     results: list[tuple[dict, dict]] = []
     for metric in parse_metrics(args.metrics):
@@ -552,16 +598,23 @@ def _compute(
     return results
 
 
+def _resolve_token() -> tuple[str, str]:
+    """The token to use and which env var it came from, or a refusal when neither is set."""
+    token_source = TOKEN_ENV
+    token = os.environ.get(TOKEN_ENV, "").strip()
+    if not token:
+        token_source = FALLBACK_TOKEN_ENV
+        token = os.environ.get(FALLBACK_TOKEN_ENV, "").strip()
+    if not token:
+        raise ClonometerError(f"{TOKEN_ENV} is not set, so clonometer has no token to use")
+    return token, token_source
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Parse argv, fetch and total every requested metric, and print or write the result."""
     args = _build_parser().parse_args(argv)
     try:
-        token_source = TOKEN_ENV
-        token = os.environ.get(TOKEN_ENV, "").strip()
-        if not token:
-            token_source = FALLBACK_TOKEN_ENV
-            token = os.environ.get(FALLBACK_TOKEN_ENV, "").strip()
-        if not token:
-            raise ClonometerError(f"{TOKEN_ENV} is not set, so clonometer has no token to use")
+        token, token_source = _resolve_token()
         api_root = check_api_root(os.environ.get(API_ROOT_ENV, DEFAULT_API_ROOT))
         results = _compute(args, token, api_root, today_utc(), token_source)
         if args.write:
@@ -576,7 +629,7 @@ def main(argv: list[str] | None = None) -> int:
                 publish_gist(api_root, args.gist, gist_token, gist_files)
                 print(
                     f"gist: {', '.join(sorted(gist_files))} mirrored to "
-                    f"https://gist.github.com/{args.gist}"
+                    f"https://gist.github.com/{args.gist}",
                 )
     except ClonometerError as error:
         print(str(error), file=sys.stderr)
@@ -586,7 +639,7 @@ def main(argv: list[str] | None = None) -> int:
         for doc, _ in results:
             print(
                 f"{doc['metric']}: {doc['badge']}, {doc['window']['count']:,} in the last "
-                f"14 days, since {doc['since']}"
+                f"14 days, since {doc['since']}",
             )
     return 0
 

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import drawsvg as draw
 import pytest
 
 from scripts import draw_loop
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_the_committed_svg_is_what_the_spec_draws() -> None:
@@ -87,9 +90,9 @@ def test_an_empty_cycle_is_refused() -> None:
 def test_render_does_not_add_a_second_newline_when_the_svg_already_has_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """drawsvg serialises through a recursive self-call with an open file handle;
-    only the outer, file-less call is the one render() sees, so only that call
-    gets the extra newline appended."""
+    """The drawsvg library serialises through a recursive self-call with an open
+    file handle; only the outer, file-less call is the one render() sees, so only
+    that call gets the extra newline appended."""
     spec = json.loads(draw_loop.SPEC.read_text("utf-8"))
     original_as_svg = draw.Drawing.as_svg
 

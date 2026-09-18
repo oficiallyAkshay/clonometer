@@ -94,10 +94,12 @@ def num(x: float) -> str:
 
 
 def times(fractions: list[float]) -> str:
+    """The keyTimes attribute value: each fraction, formatted and joined by semicolons."""
     return ";".join(num(f) for f in fractions)
 
 
 def style_block() -> draw.Raw:
+    """The one CSS block every text element in the SVG shares."""
     css = (
         "text{font-family:" + FONT_STACK + f";fill:{INK}}}"
         ".t{font-size:15px;font-weight:600}"
@@ -111,7 +113,8 @@ def style_block() -> draw.Raw:
 
 
 def title_and_endcaps(spec: dict) -> list[draw.DrawingElement]:
-    parts = [
+    """The title, the two edge labels, and the two endcap ticks marking the belt."""
+    return [
         draw.Text(spec["title"], 15, 450, TITLE_Y, text_anchor="middle", class_="t"),
         draw.Text(spec["oldest_label"], 12, BELT_LEFT, ENDCAP_Y, text_anchor="start", class_="s"),
         draw.Text(spec["today_label"], 12, BELT_RIGHT, ENDCAP_Y, text_anchor="end", class_="s"),
@@ -128,7 +131,6 @@ def title_and_endcaps(spec: dict) -> list[draw.DrawingElement]:
             fill="none",
         ),
     ]
-    return parts
 
 
 GONE_W = 20
@@ -155,7 +157,7 @@ def gone_trail(spec: dict) -> list[draw.DrawingElement]:
                 stroke_width=1,
                 stroke_dasharray="2 3",
                 stroke_opacity=0.5,
-            )
+            ),
         )
     parts.append(
         draw.Text(
@@ -166,7 +168,7 @@ def gone_trail(spec: dict) -> list[draw.DrawingElement]:
             text_anchor="middle",
             class_="xs",
             fill_opacity=0.6,
-        )
+        ),
     )
     return parts
 
@@ -184,7 +186,7 @@ def box_group(index: int, value: int, label: str) -> draw.Group:
             BELT_TOP + BOX_H // 2 + 4,
             text_anchor="middle",
             class_="boxval",
-        )
+        ),
     )
     g.append(draw.Text(label, 11, BOX_W // 2, LABEL_Y, text_anchor="middle", class_="xs"))
     return g
@@ -214,19 +216,19 @@ def belt(spec: dict) -> draw.Group:
                     begin=f"{i * DAY_SECONDS}s",
                     repeatCount="indefinite",
                     keyTimes=times([0, F_ENTER, F_FALL, 1]),
-                )
+                ),
             )
             g.append_anim(
                 draw.AnimateTransform(
                     "translate",
                     LOOP_DUR,
-                    from_or_values=";".join(["0,0", "0,0", "0,14", "0,14"]),
+                    from_or_values="0,0;0,0;0,14;0,14",
                     begin=f"{i * DAY_SECONDS}s",
                     repeatCount="indefinite",
                     keyTimes=times([0, F_ENTER, F_FALL, 1]),
                     attributeName="transform",
                     additive="sum",
-                )
+                ),
             )
         elif i >= VISIBLE:
             k = i - VISIBLE
@@ -240,19 +242,19 @@ def belt(spec: dict) -> draw.Group:
                     begin=f"{k * DAY_SECONDS}s",
                     repeatCount="indefinite",
                     keyTimes=times([0, F_ENTER, 1]),
-                )
+                ),
             )
             g.append_anim(
                 draw.AnimateTransform(
                     "translate",
                     LOOP_DUR,
-                    from_or_values=";".join(["0,10", "0,0", "0,0"]),
+                    from_or_values="0,10;0,0;0,0",
                     begin=f"{k * DAY_SECONDS}s",
                     repeatCount="indefinite",
                     keyTimes=times([0, F_ENTER, 1]),
                     attributeName="transform",
                     additive="sum",
-                )
+                ),
             )
         strip.append(g)
 
@@ -275,7 +277,7 @@ def belt(spec: dict) -> draw.Group:
             calcMode="spline",
             keyTimes=times(slide_times),
             keySplines=splines,
-        )
+        ),
     )
 
     window = draw.Group(clip_path=clip)
@@ -309,7 +311,7 @@ def falling_values(spec: dict) -> list[draw.DrawingElement]:
                 calcMode="linear",
                 begin=f"{k * DAY_SECONDS}s",
                 repeatCount="indefinite",
-            )
+            ),
         )
         t.append_anim(
             draw.Animate(
@@ -322,15 +324,18 @@ def falling_values(spec: dict) -> list[draw.DrawingElement]:
                 begin=f"{k * DAY_SECONDS}s",
                 repeatCount="indefinite",
                 keyTimes=times([0, F_ENTER, F_ENTER, F_FALL, 1]),
-            )
+            ),
         )
         parts.append(t)
     return parts
 
 
 def total(spec: dict) -> list[draw.DrawingElement]:
-    """The centred all-time total: a pulsing rounded box, four totals that
-    toggle in turn, and the two captions beneath it."""
+    """The centred all-time total.
+
+    A pulsing rounded box, four totals that toggle in turn, and the two
+    captions beneath it.
+    """
     parts: list[draw.DrawingElement] = []
 
     outer = draw.Group(transform=f"translate({TOTAL_CX} {TOTAL_CY})")
@@ -351,7 +356,7 @@ def total(spec: dict) -> list[draw.DrawingElement]:
             calcMode="spline",
             keyTimes=times(pulse_times),
             keySplines=";".join([EASE] * (len(pulse_times) - 1)),
-        )
+        ),
     )
     inner = draw.Group(transform=f"translate({-TOTAL_CX} {-TOTAL_CY})")
     frame = draw.Rectangle(
@@ -378,7 +383,7 @@ def total(spec: dict) -> list[draw.DrawingElement]:
             to=ACCENT,
             begin=";".join(f"{num(t)}s" for t in land_on),
             repeatCount="indefinite",
-        )
+        ),
     )
     frame.append_anim(
         draw.Set(
@@ -387,7 +392,7 @@ def total(spec: dict) -> list[draw.DrawingElement]:
             to=INK,
             begin=";".join(f"{num(t)}s" for t in land_off),
             repeatCount="indefinite",
-        )
+        ),
     )
     inner.append(frame)
     # Each total ticks in the instant its own value lands (F_FALL into its
@@ -421,7 +426,7 @@ def total(spec: dict) -> list[draw.DrawingElement]:
                 repeatCount="indefinite",
                 calcMode="discrete",
                 keyTimes=times(key_times),
-            )
+            ),
         )
         inner.append(text)
     pulse.append(inner)
@@ -429,15 +434,16 @@ def total(spec: dict) -> list[draw.DrawingElement]:
     parts.append(outer)
 
     parts.append(
-        draw.Text(spec["total_caption"], 12, TOTAL_CX, CAPTION_Y, text_anchor="middle", class_="s")
+        draw.Text(spec["total_caption"], 12, TOTAL_CX, CAPTION_Y, text_anchor="middle", class_="s"),
     )
     parts.append(
-        draw.Text(spec["tagline"], 11, TOTAL_CX, TAGLINE_Y, text_anchor="middle", class_="xs")
+        draw.Text(spec["tagline"], 11, TOTAL_CX, TAGLINE_Y, text_anchor="middle", class_="xs"),
     )
     return parts
 
 
 def render(spec: dict) -> str:
+    """The whole hero SVG, built from spec's cycle of day values."""
     if not spec.get("cycle"):
         raise ValueError("spec cycle must hold at least one day value")
     vw, vh = spec["viewBox"]
@@ -465,6 +471,7 @@ def render(spec: dict) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Rebuild the hero SVG from the spec, or with --check, confirm it is already current."""
     check = "--check" in (argv or [])
     svg = render(json.loads(SPEC.read_text("utf-8")))
     if check:

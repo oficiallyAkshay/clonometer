@@ -33,6 +33,7 @@ dev = [
     "pre-commit==4.6.2",
     "pyyaml==6.0.3",
     "drawsvg==2.4.2",
+    "deptry==0.25.1",
 ]
 
 [build-system]
@@ -54,7 +55,71 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+select = ["ALL"]
+ignore = [
+    "COM812", # conflicts with the ruff formatter
+    "ISC001", # conflicts with the ruff formatter
+    "T20", # the CLI and scripts print their output and status by design
+    "D401", # every docstring here names a value, not a command; a deliberate house style
+    "CPY001", # no per-file copyright header convention here; LICENSE covers the whole tree
+    "TRY003", # one ClonometerError carries a plain message by design, one exit path prints it
+    "EM101", # see TRY003: the message is built inline for that one generic exception
+    "EM102", # see TRY003: the message is built inline for that one generic exception
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.pylint]
+# numbers() takes 8 named figures and read_ledger() takes 6 positional ones;
+# both are plain data, not a sign of a function doing too much.
+max-args = 8
+max-positional-args = 6
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101", # assert is pytest's own idiom
+    "ANN", # a test's signature does not need to be a documented interface
+    "ARG001", # a pytest fixture is requested by name, not always used in the body
+    "PLR2004", # comparing against a literal is the point of a test assertion
+    "PT018", # a composite assert reads fine as one check in a test body
+    "SLF001", # a white-box test reaches into internals on purpose
+    "D103", # a test's name is its documentation
+    "D105", # a fake's dunder method needs no docstring of its own
+    "D205", # a fake's docstring here is a label, not a summary-plus-body
+    "D209", # same as D205: label-shaped docstrings on small test doubles
+    "C901", # a fake HTTP server naturally branches once per endpoint it serves
+]
+"scripts/*" = [
+    "D103", # scripts/draw_loop.py's small drawing helpers are named for what they build
+]
+
+[tool.deptry]
+# The default exclude list skips "tests"; this project's dev dependencies
+# (pytest, pyyaml) are used almost entirely from there, so scan it like
+# every other directory instead.
+exclude = ["venv", "\\.venv", "\\.direnv", "\\.git", "setup\\.py"]
+# Every package under [project.optional-dependencies] is dev tooling: pytest
+# and pyyaml for the test suite, ruff for linting, pre-commit and diff-cover
+# for CI, drawsvg for the hero-image script. None of it ships at runtime.
+optional_dependencies_dev_groups = ["dev"]
+
+[tool.deptry.package_module_name_map]
+# The import name ('yaml') does not match the distribution name ('pyyaml').
+pyyaml = "yaml"
+
+[tool.deptry.per_rule_ignores]
+# Every dev dependency here is legitimately imported from tests/ and
+# scripts/, exactly where dev tooling belongs; none of this is production
+# code, so DEP004 has nothing real to find on these three imports.
+DEP004 = ["pytest", "yaml", "drawsvg"]
+
+[tool.vulture]
+paths = ["clonometer.py", "scripts", "tests"]
+# 60 catches every stdlib-override false positive this repo has (do_GET,
+# log_message, redirect_request, __exit__); 80 stays above that band while
+# still catching genuine dead code.
+min_confidence = 80
 
 [tool.coverage.run]
 source = ["clonometer", "scripts"]

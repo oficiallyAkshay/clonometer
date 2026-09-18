@@ -7,6 +7,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # A week to let a bad release surface before it reaches this repository.
+    cooldown:
+      default-days: 7
     # One pull request a week for every action bump together, not one each.
     groups:
       actions:
@@ -17,6 +20,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # A week to let a bad release surface before it reaches this repository.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     groups:
       dev:
