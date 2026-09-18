@@ -22,6 +22,14 @@ needs_node = pytest.mark.skipif(NODE is None, reason="node is not on PATH")
 needs_npm = pytest.mark.skipif(NPM is None, reason="npm is not on PATH")
 
 
+def _run(*args: str, **kwargs) -> subprocess.CompletedProcess:
+    """Run a resolved-path executable; every argument here is a literal this file chose."""
+    check = kwargs.pop("check", False)
+    return subprocess.run(  # noqa: S603 -- static args, never external input
+        args, check=check, **kwargs
+    )
+
+
 def _write_fake_python3(bin_dir: Path, exit_code: int = 0) -> None:
     """A python3 stand-in that prints one argv entry per line, then exits."""
     fake = bin_dir / "python3"
@@ -38,8 +46,12 @@ def test_the_launcher_invokes_python3_with_the_root_script_and_the_argv(
     _write_fake_python3(fake_bin)
 
     env = {**os.environ, "PATH": f"{fake_bin}:/usr/bin:/bin"}
-    result = subprocess.run(
-        [NODE, str(LAUNCHER), "owner/name", "--write", "out"],
+    result = _run(
+        NODE,
+        str(LAUNCHER),
+        "owner/name",
+        "--write",
+        "out",
         env=env,
         capture_output=True,
         text=True,
@@ -62,8 +74,10 @@ def test_a_missing_python3_is_one_line_on_stderr_and_exit_1(tmp_path: Path) -> N
     empty_bin.mkdir()
 
     env = {**os.environ, "PATH": str(empty_bin)}
-    result = subprocess.run(
-        [NODE, str(LAUNCHER), "owner/name"],
+    result = _run(
+        NODE,
+        str(LAUNCHER),
+        "owner/name",
         env=env,
         capture_output=True,
         text=True,
@@ -82,8 +96,10 @@ def test_the_childs_exit_status_is_propagated(tmp_path: Path) -> None:
     _write_fake_python3(fake_bin, exit_code=3)
 
     env = {**os.environ, "PATH": f"{fake_bin}:/usr/bin:/bin"}
-    result = subprocess.run(
-        [NODE, str(LAUNCHER), "owner/name"],
+    result = _run(
+        NODE,
+        str(LAUNCHER),
+        "owner/name",
         env=env,
         capture_output=True,
         text=True,
@@ -112,8 +128,11 @@ def test_npm_pack_ships_exactly_the_root_script_and_the_bin_dir(
         # an empty stand-in is enough to prove the files allowlist packs it.
         (pack_dir / "clonometer.py").write_text("")
 
-    result = subprocess.run(
-        [NPM, "pack", "--dry-run", "--json"],
+    result = _run(
+        NPM,
+        "pack",
+        "--dry-run",
+        "--json",
         cwd=pack_dir,
         capture_output=True,
         text=True,

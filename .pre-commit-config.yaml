@@ -1,4 +1,7 @@
-# The same hooks CI runs. Versions match the pins in pyproject.toml.
+# The same hooks CI runs. Ruff and deptry's versions match the pins in
+# pyproject.toml; gitleaks, actionlint, zizmor and vulture are standalone
+# tools pre-commit installs on its own and have no pyproject.toml pin to
+# match.
 repos:
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
@@ -17,8 +20,29 @@ repos:
     hooks:
       - id: actionlint
 
+  - repo: https://github.com/woodruffw/zizmor-pre-commit
+    rev: v1.30.1
+    hooks:
+      - id: zizmor
+
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.16
+    hooks:
+      - id: vulture
+
   - repo: local
     hooks:
+      - id: deptry
+        name: deptry
+        description: >-
+          Check for unused, missing or misplaced dependencies. Runs through uv
+          so it sees the project venv even from a plain git commit, where the
+          venv is not on PATH; fpgmaas/deptry ships no pre-commit mirror repo.
+        entry: uv run --no-sync deptry .
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: check-prose
         name: prose gate
         entry: python3 scripts/check_prose.py

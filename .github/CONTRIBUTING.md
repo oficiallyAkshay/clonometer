@@ -98,7 +98,7 @@ Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into
 
 | Check | Runs on | Blocks merge |
 | --- | --- | --- |
-| pre-commit hooks, gitleaks skipped | `checks` | yes |
+| pre-commit hooks (ruff, every rule set; gitleaks, skipped here; actionlint; zizmor; vulture; deptry; the prose gate) and pinact | `checks` | yes |
 | secrets scan over the whole history | `checks` | yes |
 | dependency audit | `checks` | yes |
 | pytest with coverage | `test`, on 3.11 and 3.13 | yes |

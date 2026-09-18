@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
-
-import pytest
+from typing import TYPE_CHECKING
 
 from scripts import check_prose
+
+if TYPE_CHECKING:
+    import pytest
+
+GIT = shutil.which("git") or "git"
 
 
 def test_the_tracked_tree_has_no_em_dash() -> None:
@@ -20,7 +25,9 @@ def test_an_em_dash_is_reported_by_file_and_line() -> None:
 
 
 def test_a_tree_with_nothing_to_read_is_an_error_not_a_pass(tmp_path: Path) -> None:
-    subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True)
+    subprocess.run(  # noqa: S603 -- static args, never external input
+        [GIT, "init", "--quiet", str(tmp_path)], check=True
+    )
     assert check_prose.main([str(tmp_path)]) == 1
 
 
@@ -46,9 +53,13 @@ def test_a_path_that_cannot_be_opened_as_a_file_is_not_text(tmp_path: Path) -> N
 def test_an_em_dash_found_by_main_is_printed_and_the_gate_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True)
+    subprocess.run(  # noqa: S603 -- static args, never external input
+        [GIT, "init", "--quiet", str(tmp_path)], check=True
+    )
     (tmp_path / "notes.md").write_text("bad " + chr(0x2014) + " line\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(tmp_path), "add", "notes.md"], check=True)
+    subprocess.run(  # noqa: S603 -- static args, never external input
+        [GIT, "-C", str(tmp_path), "add", "notes.md"], check=True
+    )
     assert check_prose.main([str(tmp_path)]) == 1
     out = capsys.readouterr().out
     assert "notes.md:1: em dash" in out

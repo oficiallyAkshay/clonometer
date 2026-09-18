@@ -22,6 +22,7 @@ import base64
 import http.server
 import json
 import os
+import shutil
 import subprocess
 import threading
 from pathlib import Path
@@ -33,10 +34,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 ACTION_FILE = ROOT / "action.yml"
 BOT_AUTHOR = "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
-TOKEN = "a-fine-grained-token-that-must-never-leak"
-GIST_TOKEN = "a-classic-gist-token-that-must-never-leak"
+TOKEN = "a-fine-grained-token-that-must-never-leak"  # noqa: S105 -- fake test fixture, not a real secret
+GIST_TOKEN = "a-classic-gist-token-that-must-never-leak"  # noqa: S105 -- fake test fixture, not a real secret
 GIST_ID = "0123456789abcdef0123456789abcdef"
 REPO = "octo-owner/octo-repo"
+GIT = shutil.which("git") or "git"
+BASH = shutil.which("bash") or "bash"
 
 
 def _load_action() -> dict:
@@ -49,6 +52,14 @@ def _steps() -> list[dict]:
 
 def _step(name: str) -> dict:
     return next(step for step in _steps() if step["name"] == name)
+
+
+def _git(*args: str, **kwargs) -> subprocess.CompletedProcess:
+    """Run git at its resolved full path; every argument here is a literal this file chose."""
+    check = kwargs.pop("check", False)
+    return subprocess.run(  # noqa: S603 -- static args, never external input
+        [GIT, *args], check=check, **kwargs
+    )
 
 
 # --------------------------------------------------------------------------
@@ -93,33 +104,30 @@ def test_the_fetch_step_reads_the_action_context_through_env_and_uses_no_token()
 def _seed_action_repo(tmp_path: Path) -> tuple[Path, str]:
     """A bare repository standing in for clonometer's own, holding a marker script."""
     seed = tmp_path / "seed"
-    subprocess.run(["git", "init", "--quiet", "-b", "main", str(seed)], check=True)
+    _git("init", "--quiet", "-b", "main", str(seed), check=True)
     (seed / "clonometer.py").write_text(
         "import sys; print('ran from the fetched checkout'); sys.exit(0)\n", encoding="utf-8"
     )
-    subprocess.run(["git", "-C", str(seed), "add", "clonometer.py"], check=True)
-    subprocess.run(
-        [
-            "git",
-            "-C",
-            str(seed),
-            "-c",
-            "user.name=t",
-            "-c",
-            "user.email=t@example.invalid",
-            "commit",
-            "--quiet",
-            "-m",
-            "seed",
-        ],
+    _git("-C", str(seed), "add", "clonometer.py", check=True)
+    _git(
+        "-C",
+        str(seed),
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "seed",
         check=True,
     )
     server = tmp_path / "server"
     bare = server / "owner" / "clonometer.git"
     bare.parent.mkdir(parents=True)
-    subprocess.run(["git", "clone", "--quiet", "--bare", str(seed), str(bare)], check=True)
-    sha = subprocess.run(
-        ["git", "-C", str(seed), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    _git("clone", "--quiet", "--bare", str(seed), str(bare), check=True)
+    sha = _git(
+        "-C", str(seed), "rev-parse", "HEAD", capture_output=True, text=True, check=True
     ).stdout.strip()
     return server, sha
 
@@ -219,7 +227,9 @@ def test_count_step_calls_clonometer_with_write_branch_and_metrics() -> None:
 def test_count_step_reads_both_gist_inputs_through_env_and_masks_the_gist_token() -> None:
     count = _step("count")
     assert count["env"]["CLONOMETER_GIST"] == "${{ inputs.gist }}"
-    assert count["env"]["CLONOMETER_GIST_TOKEN"] == "${{ inputs.gist_token }}"
+    assert (
+        count["env"]["CLONOMETER_GIST_TOKEN"] == "${{ inputs.gist_token }}"  # noqa: S105 -- a placeholder expression, not a secret value
+    )
     assert "::add-mask::${CLONOMETER_GIST_TOKEN}" in count["run"]
     assert "--gist" in count["run"]
 
@@ -251,7 +261,7 @@ class _FakeState:
 
 def _make_handler(state: _FakeState) -> type[http.server.BaseHTTPRequestHandler]:
     class Handler(http.server.BaseHTTPRequestHandler):
-        def log_message(self, format_: str, *args: object) -> None:
+        def log_message(self, _format: str, *args: object) -> None:
             pass  # the test output does not need an access log
 
         def _send_json(self, status: int, body: dict) -> None:
@@ -282,9 +292,8 @@ def _make_handler(state: _FakeState) -> type[http.server.BaseHTTPRequestHandler]
             if split.path.startswith(f"{prefix}/contents/"):
                 file_name = split.path[len(f"{prefix}/contents/") :]
                 ref = parse_qs(split.query).get("ref", [""])[0]
-                result = subprocess.run(
-                    ["git", "-C", str(state.bare_repo), "show", f"{ref}:{file_name}"],
-                    capture_output=True,
+                result = _git(
+                    "-C", str(state.bare_repo), "show", f"{ref}:{file_name}", capture_output=True
                 )
                 if result.returncode != 0:
                     self._send_json(404, {"message": "Not Found"})
@@ -315,7 +324,7 @@ def _make_handler(state: _FakeState) -> type[http.server.BaseHTTPRequestHandler]
 @pytest.fixture
 def bare_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "remote.git"
-    subprocess.run(["git", "init", "--quiet", "--bare", str(repo)], check=True)
+    _git("init", "--quiet", "--bare", str(repo), check=True)
     return repo
 
 
@@ -338,12 +347,13 @@ def fake_github(bare_repo: Path):
 
 
 def _run_step(name: str, env: dict[str, str], cwd: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["bash", "-c", _step(name)["run"]],
+    return subprocess.run(  # noqa: S603 -- runs this file's own step body, never external input
+        [BASH, "-c", _step(name)["run"]],
         cwd=str(cwd),
         env=env,
         capture_output=True,
         text=True,
+        check=False,
     )
 
 
@@ -368,38 +378,34 @@ def _env(
 
 
 def _commit_count(repo: Path, ref: str) -> int:
-    result = subprocess.run(
-        ["git", "-C", str(repo), "rev-list", "--count", ref],
-        capture_output=True,
-        text=True,
-        check=True,
+    result = _git(
+        "-C", str(repo), "rev-list", "--count", ref, capture_output=True, text=True, check=True
     )
     return int(result.stdout.strip())
 
 
 def _tree_files(repo: Path, ref: str) -> set[str]:
-    result = subprocess.run(
-        ["git", "-C", str(repo), "ls-tree", "--name-only", ref],
-        capture_output=True,
-        text=True,
-        check=True,
+    result = _git(
+        "-C", str(repo), "ls-tree", "--name-only", ref, capture_output=True, text=True, check=True
     )
     return set(result.stdout.split())
 
 
 def _show(repo: Path, ref: str, path: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(repo), "show", f"{ref}:{path}"],
-        capture_output=True,
-        text=True,
-        check=True,
+    result = _git(
+        "-C", str(repo), "show", f"{ref}:{path}", capture_output=True, text=True, check=True
     )
     return result.stdout
 
 
 def _author(repo: Path, ref: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(repo), "log", "-1", "--format=%an <%ae>", ref],
+    result = _git(
+        "-C",
+        str(repo),
+        "log",
+        "-1",
+        "--format=%an <%ae>",
+        ref,
         capture_output=True,
         text=True,
         check=True,
@@ -408,9 +414,7 @@ def _author(repo: Path, ref: str) -> str:
 
 
 def _refs(repo: Path) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(repo), "for-each-ref"], capture_output=True, text=True, check=True
-    )
+    result = _git("-C", str(repo), "for-each-ref", capture_output=True, text=True, check=True)
     return result.stdout
 
 
@@ -443,11 +447,8 @@ def test_end_to_end_first_run_publishes_one_commit_with_the_four_files(
     assert _tree_files(bare_repo, "badges") == EXPECTED_FILES
     assert _author(bare_repo, "badges") == BOT_AUTHOR
 
-    config = subprocess.run(
-        ["git", "-C", str(bare_repo), "config", "--list"],
-        capture_output=True,
-        text=True,
-        check=True,
+    config = _git(
+        "-C", str(bare_repo), "config", "--list", capture_output=True, text=True, check=True
     ).stdout
     assert TOKEN not in config
     for name in EXPECTED_FILES:
@@ -584,35 +585,34 @@ def test_turning_a_metric_off_for_a_run_keeps_its_files_and_ledger_on_the_branch
 def test_publish_refuses_the_repositorys_default_branch(
     tmp_path: Path, bare_repo: Path, fake_github
 ) -> None:
-    default = subprocess.run(
-        ["git", "-C", str(bare_repo), "symbolic-ref", "--short", "HEAD"],
+    default = _git(
+        "-C",
+        str(bare_repo),
+        "symbolic-ref",
+        "--short",
+        "HEAD",
         capture_output=True,
         text=True,
         check=True,
     ).stdout.strip()
     seed = tmp_path / "seed"
-    subprocess.run(["git", "init", "--quiet", "-b", default, str(seed)], check=True)
+    _git("init", "--quiet", "-b", default, str(seed), check=True)
     (seed / "README.md").write_text("history worth keeping\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(seed), "add", "README.md"], check=True)
-    subprocess.run(
-        [
-            "git",
-            "-C",
-            str(seed),
-            "-c",
-            "user.name=t",
-            "-c",
-            "user.email=t@example.invalid",
-            "commit",
-            "--quiet",
-            "-m",
-            "seed",
-        ],
+    _git("-C", str(seed), "add", "README.md", check=True)
+    _git(
+        "-C",
+        str(seed),
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "seed",
         check=True,
     )
-    subprocess.run(
-        ["git", "-C", str(seed), "push", "--quiet", str(bare_repo), f"HEAD:{default}"], check=True
-    )
+    _git("-C", str(seed), "push", "--quiet", str(bare_repo), f"HEAD:{default}", check=True)
 
     env = _first_run(tmp_path, bare_repo, fake_github, CLONOMETER_BRANCH=default)
     assert _run_step("count", env, tmp_path).returncode == 0
@@ -704,35 +704,34 @@ def test_a_symlink_planted_on_the_branch_is_replaced_not_followed(
     victim = tmp_path / "victim.txt"
     victim.write_text("untouched\n", encoding="utf-8")
     seed = tmp_path / "seed"
-    subprocess.run(["git", "init", "--quiet", "-b", "badges", str(seed)], check=True)
+    _git("init", "--quiet", "-b", "badges", str(seed), check=True)
     (seed / "clones.json").symlink_to(victim)
-    subprocess.run(["git", "-C", str(seed), "add", "clones.json"], check=True)
-    subprocess.run(
-        [
-            "git",
-            "-C",
-            str(seed),
-            "-c",
-            "user.name=t",
-            "-c",
-            "user.email=t@example.invalid",
-            "commit",
-            "--quiet",
-            "-m",
-            "planted",
-        ],
+    _git("-C", str(seed), "add", "clones.json", check=True)
+    _git(
+        "-C",
+        str(seed),
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "planted",
         check=True,
     )
-    subprocess.run(
-        ["git", "-C", str(seed), "push", "--quiet", str(bare_repo), "HEAD:badges"], check=True
-    )
+    _git("-C", str(seed), "push", "--quiet", str(bare_repo), "HEAD:badges", check=True)
 
     env = _first_run(tmp_path, bare_repo, fake_github)
     assert _run_step("count", env, tmp_path).returncode == 0
     assert _run_step("publish", env, tmp_path).returncode == 0
     assert victim.read_text(encoding="utf-8") == "untouched\n"
-    mode = subprocess.run(
-        ["git", "-C", str(bare_repo), "ls-tree", "badges", "clones.json"],
+    mode = _git(
+        "-C",
+        str(bare_repo),
+        "ls-tree",
+        "badges",
+        "clones.json",
         capture_output=True,
         text=True,
         check=True,

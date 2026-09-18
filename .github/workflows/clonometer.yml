@@ -19,7 +19,7 @@ jobs:
       # here, so the dogfood run takes the same path every consumer takes:
       # no checkout, no permissions, one line. It follows main rather than
       # a pinned commit because this repository is main.
-      - uses: oficiallyAkshay/clonometer@main
+      - uses: oficiallyAkshay/clonometer@main # zizmor: ignore[unpinned-uses] this repo is main; a pinned commit here would be main pinning itself
         with:
           # A fine-grained personal access token with Administration read
           # and Contents write, scoped to this repository only, stored as

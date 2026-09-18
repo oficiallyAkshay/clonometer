@@ -10,11 +10,13 @@ nothing.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+GIT = shutil.which("git") or "git"
 
 # Built from its code point so the character itself never appears in this repo.
 EM_DASH = chr(0x2014)
@@ -23,8 +25,8 @@ SKIP_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2"}
 
 def git_files(root: Path) -> list[Path]:
     """Every tracked file, as paths relative to the repo root."""
-    out = subprocess.run(
-        ["git", "ls-files", "-z"],
+    out = subprocess.run(  # noqa: S603 -- static args, never external input
+        [GIT, "ls-files", "-z"],
         cwd=str(root),
         capture_output=True,
         text=True,
@@ -67,6 +69,7 @@ def scan(files: list[Path], root: Path) -> tuple[list[str], int]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the gate over argv[0] or the repo root, and return its exit code."""
     root = Path(argv[0]) if argv else REPO_ROOT
     errors, read = scan(git_files(root), root)
     for error in errors:
