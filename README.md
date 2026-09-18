@@ -15,27 +15,13 @@
 </p>
 
 <p align="center">
-  <a href="#limits"><img alt="clones of this repository, last seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"></a>
-  <a href="#limits"><img alt="views of this repository, last seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"></a>
+  <a href="#callouts"><img alt="clones of this repository, last seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"></a>
+  <a href="#callouts"><img alt="views of this repository, last seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"></a>
 </p>
 
 clonometer samples GitHub's clone count every day and keeps a lifetime ledger on a branch of your repository, or mirrored to a gist for a private one. It writes a numbers file that any badge can read.
 
-Store a fine-grained token as `TRAFFIC_TOKEN` and add the action to a daily workflow:
-
-```yaml
-name: clonometer
-on:
-  schedule: [{cron: "17 3 * * *"}]
-  workflow_dispatch:
-permissions: {}
-jobs:
-  count:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: oficiallyAkshay/clonometer@<sha>   # pin to a commit
-        with: {token: ${{ secrets.TRAFFIC_TOKEN }}}
-```
+Install: store a fine-grained token as `TRAFFIC_TOKEN` and add `oficiallyAkshay/clonometer` as a step in a daily workflow, pinned to a commit.
 
 ## Features
 
@@ -48,29 +34,51 @@ jobs:
 
 Click a badge for its recipe; Both is the recommended shape.
 
-| | This week | All time | Both |
-| --- | --- | --- | --- |
-| Clones | [![Clones, this week](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.last7_short&label=clones&suffix=%20this%20week&logo=github&logoColor=white)](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.last7_short&label=clones&suffix=%20this%20week&logo=github&logoColor=white) | [![Clones, all time](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white)](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white) | [![Clones, this week and all time](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white)](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white) |
-| Views | [![Views, this week](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.last7_short&label=views&suffix=%20this%20week&logo=github&logoColor=white)](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.last7_short&label=views&suffix=%20this%20week&logo=github&logoColor=white) | [![Views, all time](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.total_short&label=views&suffix=%20all-time&logo=github&logoColor=white)](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.total_short&label=views&suffix=%20all-time&logo=github&logoColor=white) | [![Views, this week and all time](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white)](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white) |
+<table width="100%">
+  <tr>
+    <th></th>
+    <th align="center">This week</th>
+    <th align="center">All time</th>
+    <th align="center">Both</th>
+  </tr>
+  <tr>
+    <th align="left">Clones</th>
+    <td align="center"><a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.last7_short&label=clones&suffix=%20this%20week&logo=github&logoColor=white"><img alt="Clones, this week" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.last7_short&label=clones&suffix=%20this%20week&logo=github&logoColor=white"></a></td>
+    <td align="center"><a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white"><img alt="Clones, all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.total_short&label=clones&suffix=%20all-time&logo=github&logoColor=white"></a></td>
+    <td align="center"><a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"><img alt="Clones, this week and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"></a></td>
+  </tr>
+  <tr>
+    <th align="left">Views</th>
+    <td align="center"><a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.last7_short&label=views&suffix=%20this%20week&logo=github&logoColor=white"><img alt="Views, this week" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.last7_short&label=views&suffix=%20this%20week&logo=github&logoColor=white"></a></td>
+    <td align="center"><a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.total_short&label=views&suffix=%20all-time&logo=github&logoColor=white"><img alt="Views, all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.total_short&label=views&suffix=%20all-time&logo=github&logoColor=white"></a></td>
+    <td align="center"><a href="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"><img alt="Views, this week and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"></a></td>
+  </tr>
+</table>
 
 ## Security
 
-| Does | Never |
-| --- | --- |
-| ✅ needs one fine-grained token scoped to your repository, Administration read and Contents write<br>✅ sends it only as a request header<br>✅ reads two traffic endpoints<br>✅ pushes one commit to your storage branch, or updates your gist<br>✅ runs from a pinned commit with 100 percent test coverage<br>✅ standard library only | ❌ contacts a third-party service<br>❌ sends telemetry<br>❌ touches another repository<br>❌ touches your default branch<br>❌ follows a redirect or plain http<br>❌ follows a symlink<br>❌ adds a dependency |
+clonometer needs one fine-grained token scoped to your repository, Administration read and Contents write, and sends it only as a request header.
+
+- ❌ contacts a third-party service
+- ❌ sends telemetry
+- ❌ touches another repository
+- ❌ touches your default branch
+- ❌ follows a redirect or plain http
+- ❌ follows a symlink
+- ❌ adds a dependency
 
 ## How it compares
 
 | | [oficiallyAkshay/clonometer](https://github.com/oficiallyAkshay/clonometer) | [MShawon/github-clone-count-badge](https://github.com/MShawon/github-clone-count-badge) | [jgehrcke/github-repo-stats](https://github.com/jgehrcke/github-repo-stats) |
 | --- | --- | --- | --- |
-| Lifetime clone count | Yes | Yes | Yes |
-| Lifetime view count | Yes | No | Yes |
+| Lifetime clone count | ✅ | ✅ | ✅ |
+| Lifetime view count | ✅ | ❌ | ✅ |
 | Installation | Action | Copy its workflow | Action |
 | Storage | Branch or gist | Gist | Branch |
 | Output | Numbers file | One badge | Reports |
 | Token | Traffic read, contents write | Traffic read, gist write | Traffic read, contents write |
 
-## Limits
+## Callouts
 
 - Counting starts on the day you install it.
 - Expect up to a day of delay.
