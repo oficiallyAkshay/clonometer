@@ -98,15 +98,16 @@ Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into
 
 | Check | Runs on | Blocks merge |
 | --- | --- | --- |
-| pre-commit hooks (ruff, every rule set; gitleaks, skipped here; actionlint; zizmor; vulture; deptry; the prose gate) and pinact | `checks` | yes |
-| secrets scan over the whole history | `checks` | yes |
-| dependency audit | `checks` | yes |
-| pytest with coverage | `test`, on 3.11 and 3.13 | yes |
-| diff coverage at 100 percent | `test`, pull requests only | yes |
-| coverage upload | `test`, on 3.13 only | no |
+| pre-commit hooks (ruff, every rule set; actionlint; zizmor; vulture; deptry; the prose gate) and pinact | `checks` | yes |
+| secrets scan over the whole history (gitleaks, not a pre-commit hook here since it needs history a hook never sees) | `checks` | yes |
+| pytest with coverage | `test`, on 3.11, 3.12 and 3.14 | yes |
+| diff coverage at 100 percent | `test`, on 3.14 only, pull requests only | yes |
+| coverage upload | `test`, on 3.14 only | no |
 | gate | `ci` | yes |
+| dependency audit | `audit`, weekly and on a pull request touching `pyproject.toml` | no |
 | codeql | push, pull request and weekly | no, results in the Security tab |
 | scorecard | push to main and weekly | no |
+| dependabot auto-merge | pull requests from Dependabot | no, it only arms auto-merge; the checks above still gate the merge itself |
 
 **Test plan a change must satisfy.**
 

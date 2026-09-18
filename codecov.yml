@@ -1,7 +1,12 @@
 # Codecov reads coverage.xml uploaded by the test job. pytest-cov already
 # fails the test job under 100 percent, so the project and patch status
 # here hold the same line, with no slack for an unrelated refactor to dip
-# under.
+# under. The patch target duplicates what diff-cover already enforces in
+# ci.yml at --fail-under=100, on purpose: it must stay non-required in the
+# branch ruleset, because a fork pull request cannot mint the OIDC token
+# the coverage upload step needs, so Codecov never receives a report to
+# check patch coverage against and the status would otherwise block a
+# fork contributor for reasons unrelated to their diff.
 coverage:
   status:
     project:
