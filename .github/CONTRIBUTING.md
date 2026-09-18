@@ -89,7 +89,6 @@ Merge: each day's fields become the larger of the ledger's value and the new one
 
 ```
 clonometer OWNER/NAME [--write DIR] [--branch badges] [--metrics clones|clones,views] [--gist ID]
-uvx --from git+https://github.com/oficiallyAkshay/clonometer clonometer owner/name
 ```
 
 | Variable or exit | Meaning |
