@@ -76,14 +76,14 @@ https://img.shields.io/badge/dynamic/json?url=https://gist.githubusercontent.com
 | `token` | required | A [fine-grained token](https://github.com/settings/personal-access-tokens/new) for this repository only, Administration read and Contents write, stored as the Actions secret TRAFFIC_TOKEN |
 | `branch` | `badges` | Storage branch, always one commit, never your default branch |
 | `metrics` | `clones` | `clones` or `clones,views` |
-| `gist` | off | Id of a gist to mirror the numbers files into, for a private repository; the ledger stays on the branch |
+| `gist` | off | Id of a gist to mirror the numbers files into, for a private repository; the ledger stays on the branch. Make the gist secret, since the numbers file carries the repository name |
 | `gist_token` | `token` | A [classic token](https://github.com/settings/tokens/new?scopes=gist&description=clonometer%20gist) with only the gist scope, stored as the Actions secret GIST_TOKEN; a fine-grained token cannot write a gist |
 
 ### What leaves your machine
 
 | What | Where it goes | The guard |
 | --- | --- | --- |
-| The token | One request to the GitHub API, one push to your own repository | Never in a URL or a log; redirects and plain http refused |
+| The token | Up to two requests to the GitHub API per metric, traffic and the ledger read, plus one gist PATCH when the gist input is set, plus one push to your own repository | Never in a URL or a log; redirects and plain http refused |
 | The numbers | One commit on your storage branch, force pushed | Your default branch is refused |
 | The gist token | One PATCH to the gist you name, numbers files only, never the ledger | Off unless the gist input is set; never in a URL or a log |
 | Nothing else | No dependencies, no telemetry, no identity in the files | Standard library only; a secrets scan and a prose gate on every commit |

@@ -25,7 +25,8 @@ inputs:
       Id of a gist to mirror the numbers files into, for a private
       repository whose storage branch shields cannot read. Only the
       numbers files are copied; the ledger stays on the branch. Off
-      when empty.
+      when empty. Make it a secret gist, since the numbers file carries
+      the repository name.
     required: false
     default: ""
   gist_token:
