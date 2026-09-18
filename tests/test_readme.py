@@ -123,35 +123,38 @@ def test_the_badge_rows_sit_below_the_hero_image() -> None:
     assert hero_index < counts_row_index
 
 
-def test_the_readme_workflow_snippet_matches_the_consumer_workflow_file() -> None:
-    """One source for the workflow shape: the README's yaml block never drifts from the template."""
-    text = README.read_text("utf-8")
+def test_the_contributing_workflow_snippet_matches_the_consumer_workflow_file() -> None:
+    """One source for the workflow shape: CONTRIBUTING's yaml block never drifts."""
+    text = CONTRIBUTING.read_text("utf-8")
     template = REPO_ROOT / ".github" / "consumer-workflow.yml"
     assert template.is_file()
     template_text = template.read_text("utf-8")
 
     yaml_block_match = re.search(r"```yaml\n(.*?)```", text, re.DOTALL)
-    assert yaml_block_match, "README has no fenced yaml workflow block"
+    assert yaml_block_match, "CONTRIBUTING has no fenced yaml workflow block"
     yaml_block = yaml_block_match.group(1)
     assert yaml_block.count("\n") < 12, "the workflow snippet should stay under 12 lines"
 
-    readme_uses = re.search(r"uses:\s*(\S+)", yaml_block)
+    contributing_uses = re.search(r"uses:\s*(\S+)", yaml_block)
     template_uses = re.search(r"uses:\s*(\S+)", template_text)
-    assert readme_uses and template_uses
-    assert readme_uses.group(1) == template_uses.group(1)
+    assert contributing_uses and template_uses
+    assert contributing_uses.group(1) == template_uses.group(1)
 
-    readme_cron = re.search(r'cron:\s*"([^"]+)"', yaml_block)
+    contributing_cron = re.search(r'cron:\s*"([^"]+)"', yaml_block)
     template_cron = re.search(r'cron:\s*"([^"]+)"', template_text)
-    assert readme_cron and template_cron
-    assert readme_cron.group(1) == template_cron.group(1)
+    assert contributing_cron and template_cron
+    assert contributing_cron.group(1) == template_cron.group(1)
 
     assert "workflow_dispatch" in yaml_block
     assert "permissions: {}" in yaml_block
-    assert text.index(yaml_block_match.group(0)) < text.index("## Features")
+    assert text.index("## For agents") < text.index(yaml_block_match.group(0))
     assert "(.github/consumer-workflow.yml)" not in text
     assert "TRAFFIC_TOKEN" in text
     assert "mkdir" not in text and "curl" not in text
     assert "secrets.TRAFFIC_TOKEN" in template_text
+
+    readme_text = README.read_text("utf-8")
+    assert "```yaml" not in readme_text, "the workflow snippet moved out of the README"
 
 
 def test_contributing_documents_every_key_in_the_numbers_file() -> None:
@@ -195,6 +198,7 @@ def test_the_badges_section_is_a_six_cell_matrix_of_live_badges() -> None:
     assert "Clones" in section
     assert "Views" in section
     assert "Click a badge for its recipe; Both is the recommended shape." in section
+    assert 'width="100%"' in section, "the badge matrix is a full-width HTML table"
 
     base = "https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/"
     for metric in ("clones", "views"):

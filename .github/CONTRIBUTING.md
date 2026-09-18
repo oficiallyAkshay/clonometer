@@ -52,6 +52,22 @@ The layout.
 | `assets/` | The emoji icon and the social preview image |
 | `SECURITY.md` | How to report a vulnerability, and what the token's blast radius is |
 
+**The consumer workflow.** What a repository installing clonometer adds, a daily schedule pinned to a commit:
+
+```yaml
+name: clonometer
+on:
+  schedule: [{cron: "17 3 * * *"}]
+  workflow_dispatch:
+permissions: {}
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: oficiallyAkshay/clonometer@<sha>   # pin to a commit
+        with: {token: ${{ secrets.TRAFFIC_TOKEN }}}
+```
+
 **The numbers file and the CLI.**
 
 | Key | Type | Meaning |
