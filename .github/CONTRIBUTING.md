@@ -30,6 +30,14 @@ uv run pre-commit install
 uv run pytest
 ```
 
+**Leanness.** Before a release, run the ponytail audit skill (a Claude Code
+skill, report only, https://github.com/DietrichGebert/ponytail) in two
+passes, code first and docs after the docs exist. Apply the cuts by hand.
+Reject any cut that a test import or a stated spec line requires.
+
+CodeRabbit reviews every pull request from its GitHub App, and its comments
+are advisory.
+
 ## For agents
 
 The layout.
@@ -96,6 +104,8 @@ Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into
 | diff coverage at 90 percent | `test`, pull requests only | yes |
 | coverage upload | `test`, on 3.13 only | no |
 | gate | `ci` | yes |
+| codeql | push, pull request and weekly | no, results in the Security tab |
+| scorecard | push to main and weekly | no |
 
 **Test plan a change must satisfy.**
 
