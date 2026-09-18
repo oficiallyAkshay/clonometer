@@ -20,6 +20,22 @@ inputs:
     description: Metrics to count, 'clones' or 'clones,views'.
     required: false
     default: clones
+  gist:
+    description: >-
+      Id of a gist to mirror the numbers files into, for a private
+      repository whose storage branch shields cannot read. Only the
+      numbers files are copied; the ledger stays on the branch. Off
+      when empty.
+    required: false
+    default: ""
+  gist_token:
+    description: >-
+      Classic personal access token with the gist scope, used for the
+      gist mirror and nothing else. A fine-grained token cannot write a
+      gist. When empty the token input is used, which only works if that
+      token is itself a classic one with the gist scope.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -63,12 +79,18 @@ runs:
         CLONOMETER_OUT: ${{ runner.temp }}/clonometer
         CLONOMETER_BRANCH: ${{ inputs.branch }}
         CLONOMETER_METRICS: ${{ inputs.metrics }}
+        CLONOMETER_GIST: ${{ inputs.gist }}
+        CLONOMETER_GIST_TOKEN: ${{ inputs.gist_token }}
         CLONOMETER_ACTION_REPOSITORY: ${{ github.action_repository }}
       run: |
         # Belt and braces: the token is already a secret in the caller's
         # workflow, but masking it here too means it never shows up even
-        # if something upstream forwarded it unmasked.
+        # if something upstream forwarded it unmasked. The gist token is
+        # masked the same way when there is one.
         echo "::add-mask::${CLONOMETER_TOKEN}"
+        if [ -n "${CLONOMETER_GIST_TOKEN:-}" ]; then
+          echo "::add-mask::${CLONOMETER_GIST_TOKEN}"
+        fi
         set -euo pipefail
         # A composite action does not enforce a required input, so a missing
         # secret arrives as an empty string. Say so here, before the script
@@ -87,7 +109,14 @@ runs:
         else
           home="${GITHUB_ACTION_PATH}"
         fi
-        python3 "${home}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}"
+        # --gist is passed only when the input is set, so a run without a
+        # gist never mentions one to the script. The expansion form keeps
+        # an empty array legal under set -u on every bash the runners ship.
+        gist_args=()
+        if [ -n "${CLONOMETER_GIST:-}" ]; then
+          gist_args=(--gist "${CLONOMETER_GIST}")
+        fi
+        python3 "${home}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}" ${gist_args[@]+"${gist_args[@]}"}
         # The numbers on the run's summary page, so nobody has to open a log.
         if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
           python3 - "${CLONOMETER_OUT}" >> "${GITHUB_STEP_SUMMARY}" <<'PY'
@@ -101,6 +130,11 @@ runs:
             doc = json.loads(path.read_text(encoding="utf-8"))
             print(f"| {doc['metric']} | {doc['badge']} | {doc['window']['count']} | {doc['since']} |")
         PY
+          # The script has already PATCHed the gist by now, or exited 1.
+          if [ -n "${CLONOMETER_GIST:-}" ]; then
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo "Mirrored the numbers files to https://gist.github.com/${CLONOMETER_GIST}." >> "${GITHUB_STEP_SUMMARY}"
+          fi
         fi
 
     - name: publish

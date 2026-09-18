@@ -21,6 +21,13 @@ GitHub reported, the lifetime total, and a short form of each for a consumer
 who wants to put either into a shields dynamic JSON badge of their own
 choosing. This module has no opinion on label, colour or style.
 
+Shields can read a public repository's branch straight off raw.githubusercontent.com,
+but never a private one, so a private repository that still wants a badge
+needs the numbers mirrored somewhere shields can reach. ``--gist`` does that:
+in write mode, once the branch files are on disk, it PATCHes the same
+numbers, never the ledgers, into a gist. The ledger stays the one source of
+truth on the branch; the gist is a public window onto it.
+
 This module is meant to be read top to bottom as a pipeline: fetch the
 window, read the previous ledger, merge, total, guard, and only then write.
 Every step is its own small function so a failure partway through never
@@ -43,6 +50,7 @@ from pathlib import Path
 
 TOKEN_ENV = "CLONOMETER_TOKEN"
 FALLBACK_TOKEN_ENV = "GITHUB_TOKEN"
+GIST_TOKEN_ENV = "CLONOMETER_GIST_TOKEN"
 API_ROOT_ENV = "CLONOMETER_API"
 DEFAULT_API_ROOT = "https://api.github.com"
 
@@ -96,34 +104,43 @@ def check_api_root(api_root: str) -> str:
     raise ClonometerError(f"{API_ROOT_ENV} must start with https:// (got {root!r})")
 
 
-def _get_json(url: str, token: str) -> object:
-    """GET url with the standard headers and return the parsed JSON body.
+def _request(url: str, token: str, method: str = "GET", body: dict | None = None) -> object:
+    """The one call that reaches the network and returns the parsed JSON body.
 
-    Every request goes through ``_open``, so a test suite fakes that one
-    function and every code path above it, traffic and ledger alike, is
-    exercised through it.
+    Every request, traffic, ledger and gist alike, goes through here on top
+    of ``_open``, so a test suite fakes that one function and every code
+    path above it is exercised through it. ``body``, when given, is sent as
+    a JSON request body, the shape a gist PATCH needs; a plain GET never
+    sets it.
     """
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "clonometer",
-        },
-    )
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "clonometer",
+    }
+    data = None
+    if body is not None:
+        data = json.dumps(body).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with _open(request) as response:
-            body = response.read()
+            response_body = response.read()
     except urllib.error.HTTPError:
         # Callers decide what a status means; the stdlib error carries it.
         raise
     except urllib.error.URLError as error:
         raise ClonometerError(f"{url} could not be reached: {error.reason}") from error
     try:
-        return json.loads(body)
+        return json.loads(response_body)
     except ValueError as error:
         raise ClonometerError(f"{url} did not answer with JSON: {error}") from error
+
+
+def _get_json(url: str, token: str) -> object:
+    """GET url with the standard headers and return the parsed JSON body."""
+    return _request(url, token)
 
 
 def today_utc() -> str:
@@ -356,6 +373,15 @@ def numbers(
     }
 
 
+def _serialize(doc: dict) -> str:
+    """A JSON document exactly as clonometer writes and ships it.
+
+    One function so the bytes written to a numbers file and the bytes
+    handed to the gist PATCH can never drift apart.
+    """
+    return json.dumps(doc, indent=2, sort_keys=True) + "\n"
+
+
 def write(out_dir: Path, metric: str, numbers_doc: dict, ledger_doc: dict) -> tuple[Path, Path]:
     """Write one metric's numbers and ledger files into out_dir, creating it if needed."""
     numbers_path = out_dir / f"{metric}.json"
@@ -365,15 +391,46 @@ def write(out_dir: Path, metric: str, numbers_doc: dict, ledger_doc: dict) -> tu
         for path in (out_dir, numbers_path, ledger_path):
             if path.is_symlink():
                 raise ClonometerError(f"{path} is a symbolic link; refusing to write through it")
-        numbers_path.write_text(
-            json.dumps(numbers_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-        ledger_path.write_text(
-            json.dumps(ledger_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
+        numbers_path.write_text(_serialize(numbers_doc), encoding="utf-8")
+        ledger_path.write_text(_serialize(ledger_doc), encoding="utf-8")
     except OSError as error:
         raise ClonometerError(f"could not write into {out_dir}: {error}") from error
     return numbers_path, ledger_path
+
+
+def _valid_gist_id(value: str) -> bool:
+    """True for a plausible gist id: hexadecimal, 20 to 40 characters long."""
+    return 20 <= len(value) <= 40 and all(c in "0123456789abcdefABCDEF" for c in value)
+
+
+def publish_gist(api_root: str, gist_id: str, token: str, files: dict[str, str]) -> None:
+    """PATCH a gist's files to the numbers files this run produced.
+
+    ``files`` maps each numbers file's name (never a ledger's) to the exact
+    text ``write`` already put on disk for it, so the gist a consumer's
+    shields badge reads is byte-identical to the branch. Shields cannot
+    fetch a raw file from a private branch, so this mirror exists for a
+    private repository whose branch it otherwise could not read; the ledger
+    itself is never mirrored, the branch stays its one source of truth.
+
+    A 401, 403 or 404 here almost always means the gist token lacks the
+    gist scope, or is a fine-grained token, which cannot write a gist at
+    all, or the gist id itself does not exist.
+    """
+    url = f"{api_root}/gists/{gist_id}"
+    body = {"files": {name: {"content": content} for name, content in files.items()}}
+    try:
+        _request(url, token, method="PATCH", body=body)
+    except urllib.error.HTTPError as error:
+        if error.code in (401, 403, 404):
+            raise ClonometerError(
+                f"the gist endpoint answered HTTP {error.code} for {gist_id}; the gist token "
+                "needs the gist scope of a classic token (a fine-grained token cannot write "
+                "gists), and the gist id must exist"
+            ) from error
+        raise ClonometerError(
+            f"the gist endpoint answered HTTP {error.code} for {gist_id}"
+        ) from error
 
 
 def parse_metrics(value: str) -> list[str]:
@@ -404,6 +461,15 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_METRICS,
         help="'clones' or 'clones,views' (default: clones)",
     )
+    parser.add_argument(
+        "--gist",
+        metavar="ID",
+        default=None,
+        help=(
+            "id of a gist to mirror the numbers files into, for a private repository "
+            "whose branch shields cannot read (write mode only)"
+        ),
+    )
     return parser
 
 
@@ -418,6 +484,10 @@ def _compute(
     owner, _, name = args.repo.partition("/")
     if not owner or not name or "/" in name or any(c.isspace() for c in args.repo):
         raise ClonometerError(f"the repository must be given as owner/name, got {args.repo!r}")
+    if args.gist and not _valid_gist_id(args.gist):
+        raise ClonometerError(
+            f"--gist must be a hexadecimal id 20 to 40 characters long, got {args.gist!r}"
+        )
     results: list[tuple[dict, dict]] = []
     for metric in parse_metrics(args.metrics):
         traffic = fetch_traffic(api_root, args.repo, token, metric, token_source)
@@ -463,9 +533,18 @@ def main(argv: list[str] | None = None) -> int:
         results = _compute(args, token, api_root, today_utc(), token_source)
         if args.write:
             out_dir = Path(args.write)
+            gist_files: dict[str, str] = {}
             for doc, ledger_doc in results:
                 numbers_path, ledger_path = write(out_dir, doc["metric"], doc, ledger_doc)
                 print(f"{doc['metric']}: wrote {numbers_path} and {ledger_path}; {doc['badge']}")
+                gist_files[f"{doc['metric']}.json"] = _serialize(doc)
+            if args.gist:
+                gist_token = os.environ.get(GIST_TOKEN_ENV, "").strip() or token
+                publish_gist(api_root, args.gist, gist_token, gist_files)
+                print(
+                    f"gist: {', '.join(sorted(gist_files))} mirrored to "
+                    f"https://gist.github.com/{args.gist}"
+                )
     except ClonometerError as error:
         print(str(error), file=sys.stderr)
         return 1

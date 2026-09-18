@@ -1,8 +1,8 @@
 """Tests for action.yml, clonometer's composite action.
 
-The static tests parse action.yml with pyyaml and check its shape: the three
-inputs, the composite `using`, and the two bash steps named `count` and
-`publish`.
+The static tests parse action.yml with pyyaml and check its shape: the five
+inputs, the composite `using`, and the three bash steps named `fetch`, `count`
+and `publish`.
 
 The end to end tests run those two steps' `run` bodies exactly as written,
 straight out of action.yml, as plain bash subprocesses. Nothing here talks to
@@ -12,7 +12,8 @@ publish step's push at a throwaway bare repository on disk. The fake API's
 traffic endpoints answer from canned rows a test sets up, and its contents
 endpoint answers by running `git show <ref>:<file>` against that same bare
 repository, which is exactly what a real GitHub Enterprise or GitHub.com
-contents API is standing in for here.
+contents API is standing in for here. Its gists endpoint records every PATCH
+it receives so a test can check what the gist mirror sent.
 """
 
 from __future__ import annotations
@@ -33,6 +34,8 @@ ROOT = Path(__file__).resolve().parents[1]
 ACTION_FILE = ROOT / "action.yml"
 BOT_AUTHOR = "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
 TOKEN = "a-fine-grained-token-that-must-never-leak"
+GIST_TOKEN = "a-classic-gist-token-that-must-never-leak"
+GIST_ID = "0123456789abcdef0123456789abcdef"
 REPO = "octo-owner/octo-repo"
 
 
@@ -53,13 +56,16 @@ def _step(name: str) -> dict:
 # --------------------------------------------------------------------------
 
 
-def test_action_yml_parses_and_declares_exactly_the_three_inputs() -> None:
+def test_action_yml_parses_and_declares_exactly_the_five_inputs() -> None:
     inputs = _load_action()["inputs"]
-    assert set(inputs.keys()) == {"token", "branch", "metrics"}
+    assert set(inputs.keys()) == {"token", "branch", "metrics", "gist", "gist_token"}
     assert inputs["token"]["required"] is True
     assert "default" not in inputs["token"]
     assert inputs["branch"]["default"] == "badges"
     assert inputs["metrics"]["default"] == "clones"
+    for name in ("gist", "gist_token"):
+        assert inputs[name]["required"] is False
+        assert inputs[name]["default"] == ""
 
 
 def test_action_yml_is_a_composite_action() -> None:
@@ -194,6 +200,14 @@ def test_count_step_calls_clonometer_with_write_branch_and_metrics() -> None:
     assert "--metrics" in run
 
 
+def test_count_step_reads_both_gist_inputs_through_env_and_masks_the_gist_token() -> None:
+    count = _step("count")
+    assert count["env"]["CLONOMETER_GIST"] == "${{ inputs.gist }}"
+    assert count["env"]["CLONOMETER_GIST_TOKEN"] == "${{ inputs.gist_token }}"
+    assert "::add-mask::${CLONOMETER_GIST_TOKEN}" in count["run"]
+    assert "--gist" in count["run"]
+
+
 # --------------------------------------------------------------------------
 # A fake GitHub API: traffic from canned rows, contents from a bare repo.
 # --------------------------------------------------------------------------
@@ -208,6 +222,10 @@ class _FakeState:
         self.force_403 = False
         # metric name -> (top-level count, top-level uniques, per day rows)
         self.traffic: dict[str, tuple[int, int, list[tuple[str, int, int]]]] = {}
+        # What the gists endpoint answers with, and every PATCH it received:
+        # (gist id, Authorization header, decoded JSON body).
+        self.gist_status = 200
+        self.gist_patches: list[tuple[str, str, dict]] = []
 
     def set_traffic(
         self, metric: str, count: int, uniques: int, rows: list[tuple[str, int, int]]
@@ -260,6 +278,20 @@ def _make_handler(state: _FakeState) -> type[http.server.BaseHTTPRequestHandler]
                 return
 
             self._send_json(404, {"message": "Not Found"})
+
+        def do_PATCH(self) -> None:
+            split = urlsplit(self.path)
+            if not split.path.startswith("/gists/"):
+                self._send_json(404, {"message": "Not Found"})
+                return
+            gist_id = split.path[len("/gists/") :]
+            length = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            state.gist_patches.append((gist_id, self.headers.get("Authorization", ""), body))
+            if state.gist_status != 200:
+                self._send_json(state.gist_status, {"message": "no"})
+                return
+            self._send_json(200, {"id": gist_id})
 
     return Handler
 
@@ -657,3 +689,92 @@ def test_a_symlink_planted_on_the_branch_is_replaced_not_followed(
     ).stdout.split()[0]
     assert mode == "100644"
     assert json.loads(_show(bare_repo, "badges", "clones.json"))["metric"] == "clones"
+
+
+# --------------------------------------------------------------------------
+# The gist mirror, end to end through the count step.
+# --------------------------------------------------------------------------
+
+
+def test_a_run_without_the_gist_input_sends_no_patch(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    state, _ = fake_github
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    assert _run_step("count", env, tmp_path).returncode == 0
+    assert state.gist_patches == []
+
+
+def test_the_count_step_mirrors_exactly_the_numbers_files_into_the_gist(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    state, _ = fake_github
+    env = _first_run(
+        tmp_path, bare_repo, fake_github, CLONOMETER_GIST=GIST_ID, CLONOMETER_GIST_TOKEN=GIST_TOKEN
+    )
+    count = _run_step("count", env, tmp_path)
+    assert count.returncode == 0, count.stderr
+
+    assert len(state.gist_patches) == 1
+    gist_id, authorization, body = state.gist_patches[0]
+    assert gist_id == GIST_ID
+    assert authorization == f"Bearer {GIST_TOKEN}"
+    assert set(body["files"]) == {"clones.json", "views.json"}
+    out_dir = tmp_path / "runner-temp" / "clonometer"
+    for name in ("clones.json", "views.json"):
+        assert body["files"][name]["content"] == (out_dir / name).read_text(encoding="utf-8")
+    assert f"https://gist.github.com/{GIST_ID}" in count.stdout
+
+    # The branch publish still happens after the mirror, unchanged.
+    assert _run_step("publish", env, tmp_path).returncode == 0
+    assert _tree_files(bare_repo, "badges") == EXPECTED_FILES
+
+
+def test_an_empty_gist_token_input_falls_back_to_the_main_token(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    state, _ = fake_github
+    env = _first_run(tmp_path, bare_repo, fake_github, CLONOMETER_GIST=GIST_ID)
+    env["CLONOMETER_GIST_TOKEN"] = ""
+    assert _run_step("count", env, tmp_path).returncode == 0
+    assert state.gist_patches[0][1] == f"Bearer {TOKEN}"
+
+
+def test_a_refused_gist_fails_the_count_step_naming_the_gist_scope(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    state, _ = fake_github
+    state.gist_status = 404
+    env = _first_run(
+        tmp_path, bare_repo, fake_github, CLONOMETER_GIST=GIST_ID, CLONOMETER_GIST_TOKEN=GIST_TOKEN
+    )
+    count = _run_step("count", env, tmp_path)
+    assert count.returncode == 1
+    assert "gist scope" in count.stderr
+    # The branch files were written before the mirror was attempted, so a
+    # rerun after fixing the token has nothing to recompute.
+    assert (tmp_path / "runner-temp" / "clonometer" / "clones.json").is_file()
+    # The composite action stops here, so the branch is never touched.
+    assert _refs(bare_repo) == ""
+
+
+def test_neither_token_leaks_from_a_gist_run(tmp_path: Path, bare_repo: Path, fake_github) -> None:
+    summary = tmp_path / "summary.md"
+    env = _first_run(
+        tmp_path,
+        bare_repo,
+        fake_github,
+        CLONOMETER_GIST=GIST_ID,
+        CLONOMETER_GIST_TOKEN=GIST_TOKEN,
+        GITHUB_STEP_SUMMARY=str(summary),
+    )
+    count = _run_step("count", env, tmp_path)
+    assert count.returncode == 0, count.stderr
+    # The mask directive is consumed by the runner; on a bare shell it is plain output.
+    printed = "\n".join(
+        line for line in (count.stdout + count.stderr).splitlines() if "::add-mask::" not in line
+    )
+    assert TOKEN not in printed and GIST_TOKEN not in printed
+    text = summary.read_text(encoding="utf-8")
+    assert f"https://gist.github.com/{GIST_ID}" in text
+    assert TOKEN not in text and GIST_TOKEN not in text

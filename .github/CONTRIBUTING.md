@@ -72,7 +72,7 @@ The layout.
 Merge: each day's fields become the larger of the ledger's value and the new one, no day is ever removed. Guard: a lifetime total below the previous run's is refused and nothing is written.
 
 ```
-clonometer OWNER/NAME [--write DIR] [--branch badges] [--metrics clones|clones,views]
+clonometer OWNER/NAME [--write DIR] [--branch badges] [--metrics clones|clones,views] [--gist ID]
 uvx --from git+https://github.com/oficiallyAkshay/clonometer clonometer owner/name
 ```
 
@@ -80,7 +80,10 @@ uvx --from git+https://github.com/oficiallyAkshay/clonometer clonometer owner/na
 | --- | --- |
 | `CLONOMETER_TOKEN` | The token; `GITHUB_TOKEN` is read when it is unset and can never work |
 | `CLONOMETER_API` | API root override for tests, https only, default `https://api.github.com` |
+| `CLONOMETER_GIST_TOKEN` | The classic token with the gist scope that `--gist` uses; the main token is used when it is unset |
 | exit `0` or `1` | Numbers printed or files written, read-only without `--write`; or one line on stderr and nothing written |
+
+Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into that gist after the files are on disk; a 401, 403 or 404 there names the gist scope of a classic token.
 
 **What CI runs.**
 
@@ -115,4 +118,4 @@ uvx --from git+https://github.com/oficiallyAkshay/clonometer clonometer owner/na
 
 **The token.** Traffic reads need a fine-grained PAT scoped to Administration
 read and Contents write on that repository only, with an expiry, stored as
-the secret `TRAFFIC_TOKEN`.
+the secret `TRAFFIC_TOKEN`. The gist mirror needs a second, classic token with only the `gist` scope, stored as `GIST_TOKEN`; a fine-grained token cannot write a gist.
