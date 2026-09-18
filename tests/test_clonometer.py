@@ -941,6 +941,193 @@ def test_short_has_a_billions_tier() -> None:
     assert clonometer.short(9_999_500) == "10M"
 
 
+def patch_request_response(*, status: int = 200) -> object:
+    """A queued item for a successful gist PATCH: the gist object GitHub echoes back."""
+    if status == 200:
+        return {"id": "x"}
+    return http_error(status)
+
+
+# --------------------------------------------------------------------------
+# CLI: --gist
+# --------------------------------------------------------------------------
+
+
+def test_gist_id_validation_accepts_the_boundary_lengths_and_rejects_bad_ones() -> None:
+    assert clonometer._valid_gist_id("a" * 20) is True
+    assert clonometer._valid_gist_id("A" * 40) is True
+    assert clonometer._valid_gist_id("0123456789abcdefABCD") is True
+    assert clonometer._valid_gist_id("a" * 19) is False
+    assert clonometer._valid_gist_id("a" * 41) is False
+    assert clonometer._valid_gist_id("g" * 20) is False
+    assert clonometer._valid_gist_id("") is False
+
+
+def test_a_bad_gist_id_is_refused_before_any_request(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out_dir = tmp_path / "out"
+    args = [REPO, "--gist", "not-hex", "--write", str(out_dir)]
+    assert clonometer.main(args) == 1
+    assert fake_http.requests == []
+    assert not out_dir.exists()
+    assert "--gist" in capsys.readouterr().err
+
+
+def test_read_only_mode_ignores_gist_and_sends_no_patch(
+    fake_http, token_env, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
+    gist_id = "a" * 20
+    assert clonometer.main([REPO, "--gist", gist_id]) == 0
+    methods = [request.get_method() for request in fake_http.requests]
+    assert "PATCH" not in methods
+    assert "gist" not in capsys.readouterr().out
+
+
+def test_write_mode_without_gist_sends_no_patch(fake_http, token_env, tmp_path: Path) -> None:
+    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
+    out_dir = tmp_path / "out"
+    assert clonometer.main([REPO, "--write", str(out_dir)]) == 0
+    methods = [request.get_method() for request in fake_http.requests]
+    assert "PATCH" not in methods
+
+
+def test_gist_patch_carries_exactly_the_numbers_files_byte_identical_to_disk(
+    fake_http, token_env, frozen_today, tmp_path: Path
+) -> None:
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 12, 9)], count=12, uniques=9),
+        http_error(404),
+        traffic_payload("views", [("2026-09-17", 7, 5)], count=7, uniques=5),
+        http_error(404),
+        patch_request_response(),
+    )
+    out_dir = tmp_path / "out"
+    gist_id = "a" * 24
+    args = [REPO, "--metrics", "clones,views", "--write", str(out_dir), "--gist", gist_id]
+    assert clonometer.main(args) == 0
+
+    patch_request = fake_http.requests[-1]
+    assert patch_request.get_method() == "PATCH"
+    assert patch_request.full_url == f"{clonometer.DEFAULT_API_ROOT}/gists/{gist_id}"
+    body = json.loads(patch_request.data.decode("utf-8"))
+    assert set(body["files"]) == {"clones.json", "views.json"}
+    for name in ("clones.json", "views.json"):
+        on_disk = (out_dir / name).read_text(encoding="utf-8")
+        assert body["files"][name]["content"] == on_disk
+
+
+def test_gist_patch_never_carries_a_ledger_file(
+    fake_http, token_env, frozen_today, tmp_path: Path
+) -> None:
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        http_error(404),
+        patch_request_response(),
+    )
+    out_dir = tmp_path / "out"
+    gist_id = "b" * 20
+    assert clonometer.main([REPO, "--write", str(out_dir), "--gist", gist_id]) == 0
+    body = json.loads(fake_http.requests[-1].data.decode("utf-8"))
+    assert "clones-ledger.json" not in body["files"]
+    assert set(body["files"]) == {"clones.json"}
+
+
+def test_gist_token_env_is_used_when_set(
+    fake_http, token_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(clonometer.GIST_TOKEN_ENV, "a-gist-scoped-token")
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        http_error(404),
+        patch_request_response(),
+    )
+    gist_id = "c" * 20
+    assert clonometer.main([REPO, "--write", str(tmp_path / "out"), "--gist", gist_id]) == 0
+    patch_request = fake_http.requests[-1]
+    assert patch_request.get_header("Authorization") == "Bearer a-gist-scoped-token"
+
+
+def test_gist_falls_back_to_the_main_token_when_the_gist_token_env_is_unset(
+    fake_http, token_env, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv(clonometer.GIST_TOKEN_ENV, raising=False)
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        http_error(404),
+        patch_request_response(),
+    )
+    gist_id = "d" * 20
+    assert clonometer.main([REPO, "--write", str(tmp_path / "out"), "--gist", gist_id]) == 0
+    patch_request = fake_http.requests[-1]
+    assert patch_request.get_header("Authorization") == "Bearer a-fine-grained-token"
+
+
+@pytest.mark.parametrize("status", [401, 403, 404])
+def test_a_gist_permission_failure_names_the_gist_scope_and_the_classic_token(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str], status: int
+) -> None:
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        http_error(404),
+        http_error(status),
+    )
+    gist_id = "e" * 20
+    out_dir = tmp_path / "out"
+    assert clonometer.main([REPO, "--write", str(out_dir), "--gist", gist_id]) == 1
+    err = capsys.readouterr().err
+    assert "gist scope" in err and "classic token" in err
+    assert f"HTTP {status}" in err
+
+
+def test_a_gist_failure_leaves_the_branch_files_on_disk_and_prints_what_was_written(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        http_error(404),
+        http_error(500),
+    )
+    gist_id = "f" * 20
+    out_dir = tmp_path / "out"
+    assert clonometer.main([REPO, "--write", str(out_dir), "--gist", gist_id]) == 1
+    assert sorted(p.name for p in out_dir.iterdir()) == ["clones-ledger.json", "clones.json"]
+    out = capsys.readouterr()
+    assert "clones: wrote" in out.out
+    assert "500" in out.err
+
+
+def test_a_gist_other_http_failure_is_one_line_naming_the_status(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        http_error(404),
+        http_error(500),
+    )
+    gist_id = "1" * 20
+    assert clonometer.main([REPO, "--write", str(tmp_path / "out"), "--gist", gist_id]) == 1
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1
+    assert "gist scope" not in err
+
+
+def test_gist_success_prints_a_line_naming_the_gist_url(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        http_error(404),
+        patch_request_response(),
+    )
+    gist_id = "2" * 20
+    assert clonometer.main([REPO, "--write", str(tmp_path / "out"), "--gist", gist_id]) == 0
+    out = capsys.readouterr().out
+    assert f"https://gist.github.com/{gist_id}" in out
+    assert "clones.json" in out
+
+
 def test_the_guard_and_schema_messages_say_what_to_do(
     fake_http, token_env, capsys: pytest.CaptureFixture[str]
 ) -> None:

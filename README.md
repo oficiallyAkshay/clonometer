@@ -41,7 +41,7 @@ One line writes [the workflow](.github/consumer-workflow.yml), pinned to the cur
 | --- | --- |
 | **Honest numbers** | Never goes down, uniques are never summed across days |
 | **Your badge, your way** | Label, colour, style and logo are yours; clonometer ships numbers |
-| **Stored on your repo** | The ledger lives on a branch of your own repository, no gist, no other repo |
+| **Stored on your repo** | The ledger lives on a branch of your own repository, no other repo; a private one can mirror its numbers to a gist for the badge |
 | **Views too** | One input adds page views beside clones |
 
 ## Badges
@@ -63,6 +63,12 @@ https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/
 
 Swap clones for views, point the query at any key in the file, and add any style or colour shields offers.
 
+A private repository sets the gist input and points the badge at the gist instead, since shields cannot read a private branch:
+
+```
+https://img.shields.io/badge/dynamic/json?url=https://gist.githubusercontent.com/OWNER/GIST_ID/raw/clones.json&query=$.badge&label=clones&logo=github&logoColor=white
+```
+
 ## Configuration and security
 
 | Input | Default | Meaning |
@@ -70,6 +76,8 @@ Swap clones for views, point the query at any key in the file, and add any style
 | `token` | required | A [fine-grained token](https://github.com/settings/personal-access-tokens/new) for this repository only, Administration read and Contents write, stored as the Actions secret TRAFFIC_TOKEN |
 | `branch` | `badges` | Storage branch, always one commit, never your default branch |
 | `metrics` | `clones` | `clones` or `clones,views` |
+| `gist` | off | Id of a gist to mirror the numbers files into, for a private repository; the ledger stays on the branch |
+| `gist_token` | `token` | A [classic token](https://github.com/settings/tokens/new?scopes=gist&description=clonometer%20gist) with only the gist scope, stored as the Actions secret GIST_TOKEN; a fine-grained token cannot write a gist |
 
 ### What leaves your machine
 
@@ -77,6 +85,7 @@ Swap clones for views, point the query at any key in the file, and add any style
 | --- | --- | --- |
 | The token | One request to the GitHub API, one push to your own repository | Never in a URL or a log; redirects and plain http refused |
 | The numbers | One commit on your storage branch, force pushed | Your default branch is refused |
+| The gist token | One PATCH to the gist you name, numbers files only, never the ledger | Off unless the gist input is set; never in a URL or a log |
 | Nothing else | No dependencies, no telemetry, no identity in the files | Standard library only; a secrets scan and a prose gate on every commit |
 
 ## How it compares
@@ -88,13 +97,13 @@ Swap clones for views, point the query at any key in the file, and add any style
 | Where the data lives | A gist | A data branch of whichever repository runs it, this one by default | A branch of this repository |
 | What you get | One badge | Reports and charts | Numbers files, any badge |
 | Counts views too | No | Yes | Yes |
-| Token needs | Traffic, plus gist write | Traffic, plus push to the repository that runs it | Traffic, plus push to this repository |
+| Token needs | Traffic, plus gist write | Traffic, plus push to the repository that runs it | Traffic, plus push to this repository; gist write only if you mirror |
 
 ## Limits
 
 - Counting starts the day you enable it, plus the 14 days GitHub still had.
-- Clones include bots and CI; GitHub's figures arrive a day late; a day GitHub later revises down keeps its highest sample.
+- Clones include bots and CI: a repository whose scheduled job checks itself out every two days showed 7 clones and 1 unique in 15 days. GitHub's figures arrive a day late; a day GitHub later revises down keeps its highest sample.
 - Uniques are per day and never added up.
-- A private repository keeps counting; the badge renders once it is public.
+- A private repository keeps counting; its badge renders once it is public, or right away through the gist input.
 - Run it daily with the concurrency group kept, since a gap past 13 days loses rows, and read the commit the install line pins before trusting it.
 - Every run of the action fetches this repository with git, so clonometer's own clone count measures runs of the action as much as people cloning it; uniques barely move, since runners share addresses. That fetch needs no token of yours and works from a private repository, as long as clonometer itself stays public.
