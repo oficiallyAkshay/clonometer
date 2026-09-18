@@ -7,9 +7,6 @@ __pycache__/
 .coverage*
 coverage.xml
 htmlcov/
-dist/
-node_modules/
-*.tgz
 .claude/worktrees/
 .claude/settings.local.json
 .DS_Store

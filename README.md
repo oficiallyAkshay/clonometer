@@ -19,8 +19,6 @@
   <a href="#limits"><img alt="views of this repository, last seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"></a>
 </p>
 
-<!-- once published, add: https://img.shields.io/npm/dm/clonometer?logo=npm&logoColor=white and https://img.shields.io/pypi/dm/clonometer?logo=pypi&logoColor=white -->
-
 clonometer samples GitHub's clone count every day and keeps a lifetime ledger on a branch of your repository, or mirrored to a gist for a private one. It writes a numbers file that any badge can read.
 
 Store a fine-grained token as `TRAFFIC_TOKEN` and add the action to a daily workflow:

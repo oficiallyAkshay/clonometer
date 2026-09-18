@@ -1,28 +1,10 @@
 [project]
 name = "clonometer"
 version = "0.1.0"
-description = "A lifetime clone count for any repository, in a JSON file you can badge any way you like."
-readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
-keywords = ["github", "traffic", "clones", "badge", "shields", "github-action"]
-classifiers = [
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3 :: Only",
-    "Topic :: Software Development :: Version Control :: Git",
-]
-# Standard library only, as a policy: the script runs on a bare runner and
-# through pipx or npx with nothing to resolve.
+# Standard library only, as a policy: the script runs on a bare runner with
+# nothing to resolve.
 dependencies = []
-
-[project.urls]
-Repository = "https://github.com/oficiallyAkshay/clonometer"
-
-[project.scripts]
-clonometer = "clonometer:main"
 
 [project.optional-dependencies]
 dev = [
@@ -36,15 +18,10 @@ dev = [
     "deptry==0.25.1",
 ]
 
-[build-system]
-requires = ["hatchling==1.32.0"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-only-include = ["clonometer.py"]
-
-[tool.hatch.build.targets.sdist]
-only-include = ["clonometer.py", "README.md", "LICENSE", "pyproject.toml"]
+[tool.uv]
+# clonometer is a GitHub Action, not a built or published package; uv sync
+# has nothing to build, so it must not require a build backend.
+package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
