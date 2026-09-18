@@ -101,7 +101,7 @@ Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into
 | secrets scan over the whole history | `checks` | yes |
 | dependency audit | `checks` | yes |
 | pytest with coverage | `test`, on 3.11 and 3.13 | yes |
-| diff coverage at 90 percent | `test`, pull requests only | yes |
+| diff coverage at 100 percent | `test`, pull requests only | yes |
 | coverage upload | `test`, on 3.13 only | no |
 | gate | `ci` | yes |
 | codeql | push, pull request and weekly | no, results in the Security tab |

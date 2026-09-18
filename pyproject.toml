@@ -58,3 +58,7 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.coverage.run]
 source = ["clonometer", "scripts"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 100

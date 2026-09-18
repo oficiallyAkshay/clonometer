@@ -78,5 +78,5 @@ def main(argv: list[str] | None = None) -> int:
     return 1 if errors else 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(main(sys.argv[1:]))

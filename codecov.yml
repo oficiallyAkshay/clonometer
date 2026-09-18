@@ -1,16 +1,16 @@
-# Codecov reads coverage.xml uploaded by the test job. The project status is
-# advisory: it allows a small dip so an unrelated refactor does not block a
-# pull request. The patch status holds changed lines to the same 90 percent
-# that diff-cover enforces inside CI.
+# Codecov reads coverage.xml uploaded by the test job. pytest-cov already
+# fails the test job under 100 percent, so the project and patch status
+# here hold the same line, with no slack for an unrelated refactor to dip
+# under.
 coverage:
   status:
     project:
       default:
-        target: auto
-        threshold: 0.5%
+        target: 100%
+        threshold: 0%
     patch:
       default:
-        target: 90%
+        target: 100%
 
 # CI already reports. A bot comment on every pull request would only repeat it.
 comment: false
