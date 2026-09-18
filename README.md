@@ -12,6 +12,7 @@
   <a href="pyproject.toml"><img alt="Python 3.11 or newer" src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white"></a>
   <a href="pyproject.toml"><img alt="zero runtime dependencies" src="https://img.shields.io/badge/dependencies-0-2f6f4e?logo=python&logoColor=white"></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/oficiallyAkshay/clonometer"><img alt="OpenSSF Scorecard" src="https://api.scorecard.dev/projects/github.com/oficiallyAkshay/clonometer/badge"></a>
+  <a href="https://www.bestpractices.dev/projects/14705"><img alt="OpenSSF Best Practices, passing" src="https://www.bestpractices.dev/projects/14705/badge"></a>
 </p>
 
 <p align="center">
