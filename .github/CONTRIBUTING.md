@@ -45,11 +45,12 @@ The layout.
 | Path | What it holds |
 | --- | --- |
 | `clonometer.py` | The whole runtime: fetch, ledger merge, the numbers file, the CLI |
-| `action.yml` | The composite action: one python3 step, one publish step |
+| `action.yml` | The composite action: three bash steps, fetch, count and publish |
 | `tests/` | pytest, fake HTTP, fake ledger, fake git |
 | `scripts/` | The prose gate |
 | `.github/workflows/` | CI gates and the dogfood workflow |
 | `assets/` | The emoji icon and the social preview image |
+| `SECURITY.md` | How to report a vulnerability, and what the token's blast radius is |
 
 **The numbers file and the CLI.**
 
