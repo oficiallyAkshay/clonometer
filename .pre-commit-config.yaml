@@ -1,13 +1,10 @@
-# The same hooks CI runs. Ruff and deptry's versions match the pins in
-# pyproject.toml; gitleaks, actionlint, zizmor and vulture are standalone
-# tools pre-commit installs on its own and have no pyproject.toml pin to
-# match.
+# The same hooks CI runs, run there through pre-commit like these. Ruff and
+# deptry's versions match the pins in pyproject.toml; actionlint, zizmor and
+# vulture are standalone tools pre-commit installs on its own and have no
+# pyproject.toml pin to match. gitleaks is not here: it needs the whole git
+# history to find a secret that was ever committed, not just the working
+# tree pre-commit hands a hook, so it runs as its own step in ci.yml instead.
 repos:
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.30.1
-    hooks:
-      - id: gitleaks
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.8
     hooks:

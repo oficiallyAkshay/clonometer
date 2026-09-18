@@ -9,15 +9,18 @@ permissions:
   contents: read
 
 # A second push to a pull request supersedes the first, so cancel the run it
-# replaced. Pushes to main are never cancelled: every commit on the default
-# branch keeps its own result.
+# replaced. The group keys on the commit rather than the ref for every other
+# trigger, so a third rapid push to main gets its own group instead of
+# dropping the middle commit's run when it shares a group with the third.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # One runner for everything that reads the tree without running the test
-  # suite: hooks, secrets over the whole history, dependency audit.
+  # suite: hooks and secrets over the whole history. The dependency audit
+  # runs in its own workflow, audit.yml, on a schedule and on pull requests
+  # that touch pyproject.toml.
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -47,10 +50,10 @@ jobs:
 
       # The same hooks contributors run locally, so CI and the pre-commit
       # config cannot drift: ruff, vulture, deptry, zizmor, actionlint and the
-      # prose gate. gitleaks is skipped here because the step below scans the
-      # whole history rather than the working tree.
+      # prose gate. gitleaks is not among them; the secrets scan step below
+      # covers it with a full-history scan the hook cannot do.
       - name: pre-commit hooks
-        run: SKIP=gitleaks uv run pre-commit run --all-files --show-diff-on-failure
+        run: uv run pre-commit run --all-files --show-diff-on-failure
 
       # pinact has no pre-commit hook of its own to pin to, so it runs as its
       # own step: every `uses:` must be a full commit SHA, and that SHA must
@@ -70,17 +73,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Audit the resolved dependency set against the advisory database. The
-      # runtime has none, so this is the dev tooling. A known vulnerability
-      # fails the job.
-      - name: dependency audit
-        run: |
-          uv export --format requirements-txt --all-extras \
-            --no-emit-project > "${RUNNER_TEMP}/requirements.txt"
-          uvx pip-audit --requirement "${RUNNER_TEMP}/requirements.txt"
-
-  # The declared floor and the newest release. Both legs run to completion so
-  # a version-specific failure is visible on its own.
+  # The declared floor (3.11), the version ubuntu-24.04's own python3
+  # resolves to (3.12), and the newest release (3.14). All three legs run to
+  # completion so a version-specific failure is visible on its own.
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -91,11 +86,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.13"]
+        python-version: ["3.11", "3.12", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # diff-cover needs history on both sides to find a merge base.
+          # Full history for diff-cover's merge base, and because
+          # fetch-depth: 0 fetches every branch, not just the one under
+          # test, origin/main is already local for it below.
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
@@ -111,21 +108,19 @@ jobs:
       # Codecov accepts from a public repository. A Codecov outage must not
       # block a merge, so the step reports and moves on.
       - name: upload coverage
-        if: matrix.python-version == '3.13'
+        if: matrix.python-version == '3.14'
         uses: codecov/codecov-action@0b35c9ecc4f0529d0eb674914510c22f85b196b4 # v7.1.0
         with:
           use_oidc: true
           files: coverage.xml
           fail_ci_if_error: false
 
+      # One run is enough: diff-cover's result does not vary by
+      # interpreter. origin/main is already local, fetched in full by the
+      # checkout step above, so no second fetch is needed here.
       - name: diff coverage
-        if: github.event_name == 'pull_request'
-        # Fetch main in full. A shallow fetch leaves no commit in common with
-        # a rebased branch, and diff-cover then has no merge base to compare
-        # against.
-        run: |
-          git fetch origin main
-          uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=100
+        if: matrix.python-version == '3.14' && github.event_name == 'pull_request'
+        run: uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=100
 
   # The one context the branch ruleset requires. It exists on every run, forks
   # included, and it is the only job name the ruleset needs to know.
@@ -134,6 +129,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions: {}
     steps:
       - name: gate
         env:

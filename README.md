@@ -106,4 +106,5 @@ https://img.shields.io/badge/dynamic/json?url=https://gist.githubusercontent.com
 - Uniques are per day and never added up.
 - A private repository keeps counting; its badge renders once it is public, or right away through the gist input.
 - Run it daily with the concurrency group kept, since a gap past 13 days loses rows, and read the commit the install line pins before trusting it.
+- GitHub disables a scheduled workflow on a public repository after 60 days with no commit to the repository; any commit, on any branch, resets that clock.
 - Every run of the action fetches this repository with git, so clonometer's own clone count measures runs of the action as much as people cloning it; uniques barely move, since runners share addresses. That fetch needs no token of yours and works from a private repository, as long as clonometer itself stays public.
