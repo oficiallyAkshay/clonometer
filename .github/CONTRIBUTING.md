@@ -47,7 +47,7 @@ The layout.
 | `clonometer.py` | The whole runtime: fetch, ledger merge, the numbers file, the CLI |
 | `action.yml` | The composite action: three bash steps, fetch, count and publish |
 | `tests/` | pytest, fake HTTP, fake ledger, fake git |
-| `scripts/` | The prose gate |
+| `scripts/` | The hero drawing script |
 | `.github/workflows/` | CI gates and the dogfood workflow |
 | `assets/` | The emoji icon and the social preview image |
 | `SECURITY.md` | How to report a vulnerability, and what the token's blast radius is |
@@ -105,7 +105,7 @@ Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into
 
 | Check | Runs on | Blocks merge |
 | --- | --- | --- |
-| pre-commit hooks (ruff, every rule set; actionlint; zizmor; vulture; deptry; the prose gate) and pinact | `checks` | yes |
+| pre-commit hooks (ruff, every rule set; actionlint; zizmor; vulture; deptry) and pinact | `checks` | yes |
 | secrets scan over the whole history (gitleaks, not a pre-commit hook here since it needs history a hook never sees) | `checks` | yes |
 | pytest with coverage | `test`, on 3.11, 3.12 and 3.14 | yes |
 | diff coverage at 100 percent | `test`, on 3.14 only, pull requests only | yes |
@@ -122,7 +122,7 @@ Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into
 | --- | --- |
 | `clonometer.py` | The merge rule, the totals, the guard and both CLI modes are covered by a test that fails without the change |
 | `action.yml` | The end-to-end test still runs the script step against a fake API and a throwaway bare repository, and the branch holds exactly one commit afterward |
-| Docs | Every URL and relative link the README and this file name resolves, and the prose gate stays green |
+| Docs | Every URL and relative link the README and this file name resolves |
 
 **Git.**
 

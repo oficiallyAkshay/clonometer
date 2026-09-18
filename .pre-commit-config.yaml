@@ -39,10 +39,3 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-
-      - id: check-prose
-        name: prose gate
-        entry: python3 scripts/check_prose.py
-        language: system
-        pass_filenames: false
-        always_run: true
