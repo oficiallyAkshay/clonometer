@@ -95,7 +95,8 @@ def test_the_readme_has_no_bare_http_link() -> None:
 def test_the_hero_graphic_is_committed_offline_and_shows_the_belt() -> None:
     svg = REPO_ROOT / "assets" / "loop.svg"
     assert svg.is_file()
-    assert 'src="assets/loop.svg"' in README.read_text("utf-8")
+    text = README.read_text("utf-8")
+    assert 'src="assets/loop.svg"' in text
     body = svg.read_text("utf-8")
     for label in (
         "GitHub keeps 14 days",
@@ -110,16 +111,47 @@ def test_the_hero_graphic_is_committed_offline_and_shows_the_belt() -> None:
     assert "@import" not in body and "<image" not in body
 
 
-def test_the_consumer_workflow_file_is_linked_before_features() -> None:
-    """One source for the workflow: the README links the file the install sentence names."""
+def test_the_badge_rows_sit_below_the_hero_image() -> None:
+    """Both badge rows read below the loop, not above it, so the animation greets first."""
+    text = README.read_text("utf-8")
+    hero_index = text.index('src="assets/loop.svg"')
+    top_row_index = text.index("codecov.io/gh/oficiallyAkshay/clonometer")
+    counts_row_index = text.index(
+        "raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge"
+    )
+    assert hero_index < top_row_index
+    assert hero_index < counts_row_index
+
+
+def test_the_readme_workflow_snippet_matches_the_consumer_workflow_file() -> None:
+    """One source for the workflow shape: the README's yaml block never drifts from the template."""
     text = README.read_text("utf-8")
     template = REPO_ROOT / ".github" / "consumer-workflow.yml"
     assert template.is_file()
-    assert "(.github/consumer-workflow.yml)" in text
-    assert text.index("(.github/consumer-workflow.yml)") < text.index("## Features")
+    template_text = template.read_text("utf-8")
+
+    yaml_block_match = re.search(r"```yaml\n(.*?)```", text, re.DOTALL)
+    assert yaml_block_match, "README has no fenced yaml workflow block"
+    yaml_block = yaml_block_match.group(1)
+    assert yaml_block.count("\n") < 12, "the workflow snippet should stay under 12 lines"
+
+    readme_uses = re.search(r"uses:\s*(\S+)", yaml_block)
+    template_uses = re.search(r"uses:\s*(\S+)", template_text)
+    assert readme_uses and template_uses
+    assert readme_uses.group(1) == template_uses.group(1)
+
+    readme_cron = re.search(r'cron:\s*"([^"]+)"', yaml_block)
+    template_cron = re.search(r'cron:\s*"([^"]+)"', template_text)
+    assert readme_cron and template_cron
+    assert readme_cron.group(1) == template_cron.group(1)
+
+    assert "workflow_dispatch" in yaml_block
+    assert "permissions: {}" in yaml_block
+    assert text.index(yaml_block_match.group(0)) < text.index("## Features")
+    assert "(.github/consumer-workflow.yml)" not in text
     assert "TRAFFIC_TOKEN" in text
     assert "mkdir" not in text and "curl" not in text
-    assert "secrets.TRAFFIC_TOKEN" in template.read_text("utf-8")
+    assert "secrets.TRAFFIC_TOKEN" in template_text
 
 
 def test_contributing_documents_every_key_in_the_numbers_file() -> None:
@@ -148,6 +180,40 @@ def test_the_readme_wears_its_own_badges_made_from_the_first_two_recipes() -> No
     for recipe in RECIPE_URLS[:2]:
         own = recipe.replace("OWNER/REPO", "oficiallyAkshay/clonometer")
         assert f'src="{own}"' in text
+
+
+def test_the_badges_section_is_a_six_cell_matrix_of_live_badges() -> None:
+    """Clones and Views, each crossed with This week, All time and Both: six live badges."""
+    text = README.read_text(encoding="utf-8")
+    section_start = text.index("## Badges")
+    section_end = text.index("## Security")
+    section = text[section_start:section_end]
+
+    assert "This week" in section
+    assert "All time" in section
+    assert "Both" in section
+    assert "Clones" in section
+    assert "Views" in section
+    assert "Click a badge for its recipe; Both is the recommended shape." in section
+
+    base = "https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/"
+    for metric in ("clones", "views"):
+        for query, suffix in (
+            ("$.last7_short", "suffix=%20this%20week"),
+            ("$.total_short", "suffix=%20all-time"),
+            ("$.badge", None),
+        ):
+            url = (
+                f"https://img.shields.io/badge/dynamic/json?url={base}{metric}.json"
+                f"&query={query}&label={metric}"
+            )
+            if suffix:
+                url = f"{url}&{suffix}"
+            assert url in section, f"missing matrix badge: {url}"
+
+    # GitHub's own 14-day window badge is dropped from the matrix.
+    assert "window_short" not in section
+    assert "(github%2014d)" not in section
 
 
 def test_the_hero_graphic_matches_its_committed_spec() -> None:
