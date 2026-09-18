@@ -128,6 +128,37 @@ def test_the_fetch_step_clones_the_pinned_commit_of_the_action_repository(
     tmp_path: Path, bare_repo: Path, fake_github
 ) -> None:
     server, sha = _seed_action_repo(tmp_path)
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    env.update(
+        {
+            "CLONOMETER_ACTION_REPOSITORY": "owner/clonometer",
+            "CLONOMETER_ACTION_REF": sha,
+            "CLONOMETER_SERVER": f"file://{server}",
+        }
+    )
+    fetch = _run_step("fetch", env, tmp_path)
+    assert fetch.returncode == 0, fetch.stderr
+    assert (tmp_path / "runner-temp" / "clonometer-action" / "clonometer.py").is_file()
+    assert f"at {sha}" in fetch.stdout
+    assert TOKEN not in fetch.stdout + fetch.stderr
+
+
+def test_the_fetch_step_does_nothing_for_a_local_action(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    env.update({"CLONOMETER_ACTION_REPOSITORY": ""})
+    fetch = _run_step("fetch", env, tmp_path)
+    assert fetch.returncode == 0, fetch.stderr
+    assert "nothing to fetch" in fetch.stdout
+    assert not (tmp_path / "runner-temp" / "clonometer-action").exists()
+
+
+def test_the_fetch_step_lands_outside_the_consumer_workspace(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    """A later `git add -A` in the consumer's own workflow must never see this checkout."""
+    server, sha = _seed_action_repo(tmp_path)
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     env = _first_run(tmp_path, bare_repo, fake_github)
@@ -141,41 +172,26 @@ def test_the_fetch_step_clones_the_pinned_commit_of_the_action_repository(
     )
     fetch = _run_step("fetch", env, tmp_path)
     assert fetch.returncode == 0, fetch.stderr
-    assert (workspace / ".clonometer" / "clonometer.py").is_file()
-    assert f"at {sha}" in fetch.stdout
-    assert TOKEN not in fetch.stdout + fetch.stderr
-
-
-def test_the_fetch_step_does_nothing_for_a_local_action(
-    tmp_path: Path, bare_repo: Path, fake_github
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    env = _first_run(tmp_path, bare_repo, fake_github)
-    env.update({"GITHUB_WORKSPACE": str(workspace), "CLONOMETER_ACTION_REPOSITORY": ""})
-    fetch = _run_step("fetch", env, tmp_path)
-    assert fetch.returncode == 0, fetch.stderr
-    assert "nothing to fetch" in fetch.stdout
     assert not (workspace / ".clonometer").exists()
+    assert list(workspace.iterdir()) == []
 
 
 def test_the_count_step_runs_the_fetched_checkout_when_there_is_one(
     tmp_path: Path, bare_repo: Path, fake_github
 ) -> None:
-    """The context, not the workspace, decides which script runs."""
+    """The context, not where things happen to sit, decides which script runs."""
     env = _first_run(tmp_path, bare_repo, fake_github)
-    workspace = tmp_path / "workspace"
-    (workspace / ".clonometer").mkdir(parents=True)
-    (workspace / ".clonometer" / "clonometer.py").write_text(
+    action_dir = tmp_path / "runner-temp" / "clonometer-action"
+    action_dir.mkdir(parents=True)
+    (action_dir / "clonometer.py").write_text(
         "import sys; print('ran from the fetched checkout'); sys.exit(0)\n", encoding="utf-8"
     )
-    env["GITHUB_WORKSPACE"] = str(workspace)
     env["CLONOMETER_ACTION_REPOSITORY"] = "owner/clonometer"
     count = _run_step("count", env, tmp_path)
     assert count.returncode == 0, count.stderr
     assert "ran from the fetched checkout" in count.stdout
 
-    # A local `uses: ./` has no action repository: the workspace file is
+    # A local `uses: ./` has no action repository: the fetched checkout is
     # ignored even though it is there, and the action's own script runs.
     env["CLONOMETER_ACTION_REPOSITORY"] = ""
     count = _run_step("count", env, tmp_path)
@@ -605,6 +621,40 @@ def test_publish_refuses_the_repositorys_default_branch(
     assert "default branch" in publish.stderr
     assert _tree_files(bare_repo, default) == {"README.md"}
     assert _commit_count(bare_repo, default) == 1
+
+
+def test_a_branch_input_shaped_like_a_git_option_is_refused_before_any_git_call(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    """A branch beginning with a dash must never reach git as a bare ref.
+
+    ``--upload-pack=touch marker`` is exactly the shape that made a local git
+    fetch run an arbitrary command as its upload-pack program, so a marker
+    file appearing anywhere under tmp_path would prove the option reached
+    git; its absence proves the count step's own check stopped it first.
+    """
+    env = _first_run(
+        tmp_path, bare_repo, fake_github, CLONOMETER_BRANCH="--upload-pack=touch marker"
+    )
+    count = _run_step("count", env, tmp_path)
+    assert count.returncode == 1
+    assert "branch input is not a valid branch name" in count.stderr
+    # The workflow would stop here on a real runner; running publish anyway
+    # proves its own refs/heads/ fix also refuses the same input.
+    publish = _run_step("publish", env, tmp_path)
+    assert publish.returncode != 0 or "marker" not in _tree_files(bare_repo, "badges")
+    assert not any(tmp_path.rglob("marker"))
+
+
+def test_a_branch_with_a_slash_still_publishes_end_to_end(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    env = _first_run(tmp_path, bare_repo, fake_github, CLONOMETER_BRANCH="stats/badges")
+    assert _run_step("count", env, tmp_path).returncode == 0
+    publish = _run_step("publish", env, tmp_path)
+    assert publish.returncode == 0, publish.stderr
+    assert _commit_count(bare_repo, "stats/badges") == 1
+    assert _tree_files(bare_repo, "stats/badges") == EXPECTED_FILES
 
 
 def test_an_empty_token_input_fails_the_count_step_with_a_plain_message(

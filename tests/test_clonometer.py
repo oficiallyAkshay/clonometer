@@ -14,6 +14,7 @@ points their own dynamic badge at.
 from __future__ import annotations
 
 import base64
+import http.client
 import io
 import json
 import urllib.error
@@ -349,6 +350,49 @@ def test_fetch_traffic_refuses_an_unreachable_host(fake_http) -> None:
         clonometer.fetch_traffic(clonometer.DEFAULT_API_ROOT, REPO, "a-token", "clones")
 
 
+class _BrokenBodyResponse:
+    """A response whose headers arrived, but whose body never does."""
+
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+
+    def __enter__(self) -> _BrokenBodyResponse:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        raise self._error
+
+
+@pytest.mark.parametrize(
+    "error",
+    [TimeoutError("timed out"), http.client.IncompleteRead(b""), OSError("connection reset")],
+    ids=["timeout_after_headers", "incomplete_read", "connection_reset"],
+)
+def test_a_connection_that_drops_while_reading_the_body_is_refused_with_the_url(
+    monkeypatch: pytest.MonkeyPatch, error: Exception
+) -> None:
+    """Headers can arrive and the body can still fail: a timeout here is an OSError too."""
+    monkeypatch.setattr(clonometer, "_open", lambda request: _BrokenBodyResponse(error))
+    url = f"{clonometer.DEFAULT_API_ROOT}/repos/{REPO}/traffic/clones?per=day"
+    with pytest.raises(clonometer.ClonometerError, match="could not be read") as excinfo:
+        clonometer._request(url, "a-token")
+    assert url in str(excinfo.value)
+
+
+def test_a_body_read_failure_is_one_line_not_a_traceback(
+    monkeypatch: pytest.MonkeyPatch, token_env, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        clonometer, "_open", lambda request: _BrokenBodyResponse(TimeoutError("timed out"))
+    )
+    assert clonometer.main([REPO]) == 1
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1 and "could not be read" in err
+
+
 def test_fetch_traffic_refuses_a_body_that_is_not_json(fake_http) -> None:
     fake_http.queue(b"<html>upstream said no</html>")
     with pytest.raises(clonometer.ClonometerError, match="did not answer with JSON"):
@@ -358,6 +402,14 @@ def test_fetch_traffic_refuses_a_body_that_is_not_json(fake_http) -> None:
 def test_fetch_traffic_refuses_a_body_that_is_not_an_object(fake_http) -> None:
     fake_http.queue([{"count": 1}])
     with pytest.raises(clonometer.ClonometerError, match="something other than an object"):
+        clonometer.fetch_traffic(clonometer.DEFAULT_API_ROOT, REPO, "a-token", "clones")
+
+
+def test_fetch_traffic_refuses_rows_that_are_not_a_list(fake_http) -> None:
+    payload = traffic_payload("clones", [])
+    payload["clones"] = {"2026-09-17": {"count": 5, "uniques": 3}}
+    fake_http.queue(payload)
+    with pytest.raises(clonometer.ClonometerError, match="something other than"):
         clonometer.fetch_traffic(clonometer.DEFAULT_API_ROOT, REPO, "a-token", "clones")
 
 
@@ -428,6 +480,33 @@ def test_read_ledger_refuses_days_that_is_not_a_dict(fake_http) -> None:
         clonometer.read_ledger(
             clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token", "clones-ledger.json", TODAY
         )
+
+
+@pytest.mark.parametrize(
+    "day_value",
+    [None, [], {"count": "x"}],
+    ids=["null", "list", "non_numeric_count"],
+)
+def test_read_ledger_refuses_a_day_value_that_does_not_pass_the_count_check(
+    fake_http, day_value: object
+) -> None:
+    bad = {"schema": 1, "repo": REPO, "since": TODAY, "days": {"2026-09-17": day_value}}
+    fake_http.queue(contents_response(bad))
+    with pytest.raises(clonometer.ClonometerError, match="not a ledger"):
+        clonometer.read_ledger(
+            clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token", "clones-ledger.json", TODAY
+        )
+
+
+def test_read_ledger_percent_encodes_a_branch_with_special_characters(fake_http) -> None:
+    fake_http.queue(http_error(404))
+    clonometer.read_ledger(
+        clonometer.DEFAULT_API_ROOT, REPO, "a#b?c", "a-token", "clones-ledger.json", TODAY
+    )
+    request = fake_http.requests[0]
+    assert request.full_url == (
+        f"{clonometer.DEFAULT_API_ROOT}/repos/{REPO}/contents/clones-ledger.json?ref=a%23b%3Fc"
+    )
 
 
 # --------------------------------------------------------------------------

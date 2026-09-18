@@ -64,7 +64,10 @@ runs:
           echo "local action, nothing to fetch"
           exit 0
         fi
-        dir="${GITHUB_WORKSPACE}/.clonometer"
+        # RUNNER_TEMP, not the consumer's workspace: a checkout living there
+        # would be source clonometer did not ask them to track, and a later
+        # `git add -A` in their own workflow could commit it by mistake.
+        dir="${RUNNER_TEMP}/clonometer-action"
         rm -rf "${dir}"
         git init --quiet "${dir}"
         git -C "${dir}" fetch --quiet --depth 1 \
@@ -100,12 +103,22 @@ runs:
           echo "the token input is empty; set it to a fine-grained personal access token with Administration read and Contents write on this repository, stored as a repository secret" >&2
           exit 1
         fi
+        # A branch input beginning with a dash could otherwise be parsed as
+        # an option by a later git invocation instead of a ref. This is the
+        # same check git itself uses to accept a branch name, so anything it
+        # would refuse is refused here first, with a plain message naming
+        # the input rather than a raw git fatal line.
+        if ! git check-ref-format --branch "${CLONOMETER_BRANCH}" >/dev/null 2>&1; then
+          echo "the branch input is not a valid branch name: ${CLONOMETER_BRANCH}" >&2
+          exit 1
+        fi
         # The fetched checkout when the fetch step ran, which is exactly when
         # the action has a repository name; the action's own path for a
-        # local `uses: ./`. Decided by the context, never by what happens
-        # to sit in the consumer's workspace.
+        # local `uses: ./`. Kept under RUNNER_TEMP, never in the consumer's
+        # workspace, so it is never what a `git add -A` in their own
+        # workflow would find sitting there.
         if [ -n "${CLONOMETER_ACTION_REPOSITORY:-}" ]; then
-          home="${GITHUB_WORKSPACE}/.clonometer"
+          home="${RUNNER_TEMP}/clonometer-action"
         else
           home="${GITHUB_ACTION_PATH}"
         fi
@@ -176,8 +189,12 @@ runs:
         # they are, so turning a metric off for a run does not erase the
         # ledger it built. The checkout stages them without giving the new
         # commit a parent.
+        # A full ref, not a bare branch name: git parses a fetch refspec
+        # that starts with a dash as an option rather than a ref, and the
+        # count step already refused anything check-ref-format would not
+        # accept as a branch, but a full ref never carries that ambiguity.
         if git_auth -C "${work}" fetch --quiet --depth 1 "${CLONOMETER_REMOTE}" \
-          "${CLONOMETER_BRANCH}" 2>/dev/null; then
+          "refs/heads/${CLONOMETER_BRANCH}" 2>/dev/null; then
           git -C "${work}" checkout --quiet FETCH_HEAD -- .
         fi
 
