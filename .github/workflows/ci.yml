@@ -49,9 +49,9 @@ jobs:
       - run: uv sync --all-extras
 
       # The same hooks contributors run locally, so CI and the pre-commit
-      # config cannot drift: ruff, vulture, deptry, zizmor, actionlint and the
-      # prose gate. gitleaks is not among them; the secrets scan step below
-      # covers it with a full-history scan the hook cannot do.
+      # config cannot drift: ruff, vulture, deptry, zizmor and actionlint.
+      # gitleaks is not among them; the secrets scan step below covers it
+      # with a full-history scan the hook cannot do.
       - name: pre-commit hooks
         run: uv run pre-commit run --all-files --show-diff-on-failure
 
