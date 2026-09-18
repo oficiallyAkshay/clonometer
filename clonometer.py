@@ -30,15 +30,17 @@ truth on the branch; the gist is a public window onto it.
 
 This module is meant to be read top to bottom as a pipeline: fetch the
 window, read the previous ledger, merge, total, guard, and only then write.
-Every step is its own small function so a failure partway through never
-leaves half of it on disk, and a single helper wraps the one network call
-every other function needs, so tests can fake it once.
+Every step is its own small function, and nothing is written until every
+requested metric has passed the guard; the publish step that copies these
+files onto the branch never runs after a failed write. A single helper wraps
+the one network call every other function needs, so tests can fake it once.
 """
 
 from __future__ import annotations
 
 import argparse
 import base64
+import http.client
 import json
 import os
 import sys
@@ -125,13 +127,20 @@ def _request(url: str, token: str, method: str = "GET", body: dict | None = None
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with _open(request) as response:
-            response_body = response.read()
+        response = _open(request)
     except urllib.error.HTTPError:
         # Callers decide what a status means; the stdlib error carries it.
         raise
     except urllib.error.URLError as error:
         raise ClonometerError(f"{url} could not be reached: {error.reason}") from error
+    # Headers arrived, but the connection can still drop, time out or hand
+    # back a truncated body while the response is read. TimeoutError is an
+    # OSError, so this also catches a timeout that lands after the connect.
+    try:
+        with response:
+            response_body = response.read()
+    except (OSError, http.client.HTTPException) as error:
+        raise ClonometerError(f"{url} could not be read: {error}") from error
     try:
         return json.loads(response_body)
     except ValueError as error:
@@ -182,6 +191,11 @@ def fetch_traffic(
         ) from error
     if not isinstance(payload, dict):
         raise ClonometerError(f"the {metric} endpoint answered with something other than an object")
+    rows = payload.get(metric)
+    if rows is not None and not isinstance(rows, list):
+        raise ClonometerError(
+            f"the {metric} endpoint answered with something other than a list under {metric!r}"
+        )
     return payload
 
 
@@ -197,7 +211,9 @@ def read_ledger(
     because silently restarting would erase the lifetime total this whole
     module exists to protect.
     """
-    url = f"{api_root}/repos/{repo}/contents/{file_name}?ref={branch}"
+    # Percent-encoded so a branch such as "a#b" cannot truncate the ref at
+    # the fragment marker and silently ask for a different branch.
+    url = f"{api_root}/repos/{repo}/contents/{file_name}?ref={urllib.parse.quote(branch, safe='')}"
     try:
         payload = _get_json(url, token)
     except urllib.error.HTTPError as error:
@@ -223,7 +239,7 @@ def read_ledger(
         not isinstance(ledger, dict)
         or ledger.get("schema") != 1
         or not isinstance(ledger.get("days"), dict)
-        or not all(_is_date(day) for day in ledger["days"])
+        or not all(_is_date(day) and _valid_day(value) for day, value in ledger["days"].items())
     ):
         raise ClonometerError(
             f"{file_name} on the {branch} branch is not a ledger clonometer wrote; "
@@ -239,6 +255,23 @@ def _is_date(value: object) -> bool:
     except ValueError:
         return False
     return isinstance(value, str) and len(value) == 10
+
+
+def _valid_day(value: object) -> bool:
+    """True for a day entry shaped the way clonometer writes one.
+
+    A dict whose count and uniques are the kind of value ``_count`` accepts,
+    so a ledger a stray edit left with a day set to null, a list, or a
+    non-numeric count is refused the same way a wrong schema version is.
+    """
+    if not isinstance(value, dict):
+        return False
+    try:
+        int(value.get("count", 0))  # type: ignore[arg-type]
+        int(value.get("uniques", 0))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def _count(value: object, what: str) -> int:
