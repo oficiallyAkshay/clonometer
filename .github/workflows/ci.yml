@@ -5,8 +5,7 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: read
+permissions: {}
 
 # A second push to a pull request supersedes the first, so cancel the run it
 # replaced. The group keys on the commit rather than the ref for every other
