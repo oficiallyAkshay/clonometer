@@ -15,8 +15,12 @@ on:
 
 permissions: {}
 
+# A second push to a pull request supersedes the first, so cancel the run it
+# replaced. The group keys on the commit rather than the ref for every other
+# trigger, so a push to main and the weekly schedule never drop each other's
+# run by sharing a group.
 concurrency:
-  group: codeql-${{ github.ref }}
+  group: codeql-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
