@@ -35,13 +35,13 @@ jobs:
           python-version: "3.12"
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
-      - run: uv sync --all-extras
+      - run: uv sync --all-groups
 
       # Audit the resolved dependency set against the advisory database. The
       # runtime has none, so this is the dev tooling. A known vulnerability
       # fails the job.
       - name: dependency audit
         run: |
-          uv export --format requirements-txt --all-extras \
+          uv export --format requirements-txt --all-groups \
             --no-emit-project > "${RUNNER_TEMP}/requirements.txt"
           uvx pip-audit --requirement "${RUNNER_TEMP}/requirements.txt"
