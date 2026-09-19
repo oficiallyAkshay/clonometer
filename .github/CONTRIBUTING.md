@@ -25,7 +25,7 @@ that repository's own workflow, not in this action.
 ## Run it
 
 ```bash
-uv sync --all-extras
+uv sync --all-groups
 uv run pre-commit install
 uv run pytest
 ```

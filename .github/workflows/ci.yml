@@ -46,7 +46,7 @@ jobs:
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
-      - run: uv sync --all-extras
+      - run: uv sync --all-groups
 
       # The same hooks contributors run locally, so CI and the pre-commit
       # config cannot drift: ruff, vulture, deptry, zizmor and actionlint.
@@ -100,7 +100,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
-      - run: uv sync --all-extras
+      - run: uv sync --all-groups
       - run: uv run pytest --cov --cov-report=xml --cov-report=term
 
       # One report per run, so only the newest leg uploads. The upload is

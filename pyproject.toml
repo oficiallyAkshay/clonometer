@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 # nothing to resolve.
 dependencies = []
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
@@ -76,10 +76,11 @@ max-positional-args = 6
 # (pytest, pyyaml) are used almost entirely from there, so scan it like
 # every other directory instead.
 exclude = ["venv", "\\.venv", "\\.direnv", "\\.git", "setup\\.py"]
-# Every package under [project.optional-dependencies] is dev tooling: pytest
-# and pyyaml for the test suite, ruff for linting, pre-commit and diff-cover
-# for CI, drawsvg for the hero-image script. None of it ships at runtime.
-optional_dependencies_dev_groups = ["dev"]
+# Every package under [dependency-groups] is dev tooling: pytest and pyyaml
+# for the test suite, ruff for linting, pre-commit and diff-cover for CI,
+# drawsvg for the hero-image script. None of it ships at runtime. deptry
+# treats every [dependency-groups] group as development dependencies by
+# default, so the single "dev" group here needs no extra configuration.
 
 [tool.deptry.package_module_name_map]
 # The import name ('yaml') does not match the distribution name ('pyyaml').
