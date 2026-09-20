@@ -485,5 +485,5 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover -- entry point, run by hand to redraw the svg
     sys.exit(main(sys.argv[1:]))
