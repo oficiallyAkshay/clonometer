@@ -37,6 +37,17 @@ inputs:
       token is itself a classic one with the gist scope.
     required: false
     default: ""
+  allow-restart:
+    description: >-
+      Start a fresh ledger when the storage branch exists but its ledger
+      file (or, with views on, its ledger) is missing, instead of
+      refusing the run. That shape means another workflow rewrote the
+      branch and deleted the ledger; set this to "true" for exactly one
+      run to recover, then set it back to "false" or remove it, or the
+      next real loss will look exactly like this recovery run and pass
+      unnoticed.
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -85,6 +96,7 @@ runs:
         CLONOMETER_METRICS: ${{ inputs.metrics }}
         CLONOMETER_GIST: ${{ inputs.gist }}
         CLONOMETER_GIST_TOKEN: ${{ inputs.gist_token }}
+        CLONOMETER_ALLOW_RESTART: ${{ inputs['allow-restart'] }}
         CLONOMETER_ACTION_REPOSITORY: ${{ github.action_repository }}
       run: |
         # Belt and braces: the token is already a secret in the caller's
@@ -130,7 +142,13 @@ runs:
         if [ -n "${CLONOMETER_GIST:-}" ]; then
           gist_args=(--gist "${CLONOMETER_GIST}")
         fi
-        python3 "${home}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}" ${gist_args[@]+"${gist_args[@]}"}
+        # Set only for the one recovery run the input's own description asks
+        # for; any other value, including empty, leaves the guard armed.
+        restart_args=()
+        if [ "${CLONOMETER_ALLOW_RESTART:-false}" = "true" ]; then
+          restart_args=(--allow-restart)
+        fi
+        python3 "${home}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}" ${gist_args[@]+"${gist_args[@]}"} ${restart_args[@]+"${restart_args[@]}"}
         # The numbers on the run's summary page, so nobody has to open a log.
         if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
           python3 - "${CLONOMETER_OUT}" >> "${GITHUB_STEP_SUMMARY}" <<'PY'
