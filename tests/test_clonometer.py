@@ -437,7 +437,7 @@ def test_read_ledger_decodes_the_base64_content(fake_http) -> None:
 
 
 def test_read_ledger_on_404_starts_an_empty_ledger_with_todays_since(fake_http) -> None:
-    fake_http.queue(http_error(404))
+    fake_http.queue(http_error(404), http_error(404))
     result = clonometer.read_ledger(
         clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token", "clones-ledger.json", TODAY
     )
@@ -504,7 +504,7 @@ def test_read_ledger_refuses_a_day_value_that_does_not_pass_the_count_check(
 
 
 def test_read_ledger_percent_encodes_a_branch_with_special_characters(fake_http) -> None:
-    fake_http.queue(http_error(404))
+    fake_http.queue(http_error(404), http_error(404))
     clonometer.read_ledger(
         clonometer.DEFAULT_API_ROOT, REPO, "a#b?c", "a-token", "clones-ledger.json", TODAY
     )
@@ -512,6 +512,97 @@ def test_read_ledger_percent_encodes_a_branch_with_special_characters(fake_http)
     assert request.full_url == (
         f"{clonometer.DEFAULT_API_ROOT}/repos/{REPO}/contents/clones-ledger.json?ref=a%23b%3Fc"
     )
+
+
+def test_read_ledger_on_404_checks_whether_the_branch_exists(fake_http) -> None:
+    """A missing file alone is not enough to start fresh; the branch is checked too."""
+    fake_http.queue(http_error(404), http_error(404))
+    clonometer.read_ledger(
+        clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token", "clones-ledger.json", TODAY
+    )
+    assert len(fake_http.requests) == 2
+    assert fake_http.requests[1].full_url == (
+        f"{clonometer.DEFAULT_API_ROOT}/repos/{REPO}/branches/badges"
+    )
+
+
+# --------------------------------------------------------------------------
+# read_ledger: silent ledger loss becomes a refusal
+# --------------------------------------------------------------------------
+
+
+def test_read_ledger_refuses_when_the_branch_exists_but_the_file_is_missing(fake_http) -> None:
+    """The exact scenario that lost the lifetime total twice on 2026-09-20: another
+    workflow force-pushed an orphan badges branch, so the branch is there but the
+    ledger file on it is not."""
+    fake_http.queue(http_error(404), {"name": "badges"})
+    with pytest.raises(clonometer.ClonometerError) as excinfo:
+        clonometer.read_ledger(
+            clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token", "clones-ledger.json", TODAY
+        )
+    message = str(excinfo.value)
+    assert "badges branch exists" in message
+    assert "clones-ledger.json is missing" in message
+    assert "force-pushed" in message
+    assert 'allow-restart to "true"' in message
+
+
+def test_read_ledger_refuses_the_same_way_for_a_views_ledger(fake_http) -> None:
+    fake_http.queue(http_error(404), {"name": "badges"})
+    with pytest.raises(clonometer.ClonometerError, match=r"views-ledger\.json is missing"):
+        clonometer.read_ledger(
+            clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token", "views-ledger.json", TODAY
+        )
+
+
+def test_read_ledger_with_allow_restart_skips_the_branch_check_and_starts_fresh(
+    fake_http,
+) -> None:
+    """allow_restart is the escape hatch: it never even asks whether the branch exists."""
+    fake_http.queue(http_error(404))
+    result = clonometer.read_ledger(
+        clonometer.DEFAULT_API_ROOT,
+        REPO,
+        "badges",
+        "a-token",
+        "clones-ledger.json",
+        TODAY,
+        allow_restart=True,
+    )
+    assert result == {"schema": 1, "repo": REPO, "since": TODAY, "days": {}}
+    assert len(fake_http.requests) == 1
+
+
+def test_read_ledger_when_the_branch_never_existed_starts_fresh_as_the_first_run_does(
+    fake_http,
+) -> None:
+    """Branch never created: the first-run behaviour from before this change is unchanged."""
+    fake_http.queue(http_error(404), http_error(404))
+    result = clonometer.read_ledger(
+        clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token", "clones-ledger.json", TODAY
+    )
+    assert result == {"schema": 1, "repo": REPO, "since": TODAY, "days": {}}
+
+
+def test_branch_exists_is_true_on_200_and_false_on_404(fake_http) -> None:
+    fake_http.queue({"name": "badges"})
+    assert clonometer.branch_exists(clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token") is True
+    fake_http.queue(http_error(404))
+    assert clonometer.branch_exists(clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token") is False
+
+
+def test_branch_exists_percent_encodes_the_branch(fake_http) -> None:
+    fake_http.queue(http_error(404))
+    clonometer.branch_exists(clonometer.DEFAULT_API_ROOT, REPO, "a#b?c", "a-token")
+    assert fake_http.requests[0].full_url == (
+        f"{clonometer.DEFAULT_API_ROOT}/repos/{REPO}/branches/a%23b%3Fc"
+    )
+
+
+def test_branch_exists_refuses_a_non_404_status_naming_contents_read(fake_http) -> None:
+    fake_http.queue(http_error(403))
+    with pytest.raises(clonometer.ClonometerError, match="Contents read"):
+        clonometer.branch_exists(clonometer.DEFAULT_API_ROOT, REPO, "badges", "a-token")
 
 
 # --------------------------------------------------------------------------
@@ -547,6 +638,7 @@ def test_cli_read_only_never_calls_write_even_on_success(fake_http, token_env, m
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 1, 1)]),
         http_error(404),
+        http_error(404),
     )
     assert clonometer.main([REPO]) == 0
     assert calls == []
@@ -562,6 +654,7 @@ def test_cli_write_mode_writes_exactly_the_expected_files_for_clones_only(
 ) -> None:
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 12, 9)], count=12, uniques=9),
+        http_error(404),
         http_error(404),
     )
     out_dir = tmp_path / "out"
@@ -616,7 +709,7 @@ def test_cli_write_mode_writes_exactly_the_expected_files_for_clones_only(
 def test_cli_write_mode_creates_a_nested_directory_that_does_not_exist_yet(
     fake_http, token_env, tmp_path: Path
 ) -> None:
-    fake_http.queue(traffic_payload("clones", []), http_error(404))
+    fake_http.queue(traffic_payload("clones", []), http_error(404), http_error(404))
     out_dir = tmp_path / "nested" / "numbers"
     assert clonometer.main([REPO, "--write", str(out_dir)]) == 0
     assert out_dir.is_dir()
@@ -629,7 +722,9 @@ def test_cli_write_mode_with_both_metrics_writes_four_files_and_shares_the_code_
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 3, 2)], count=3),
         http_error(404),
+        http_error(404),
         traffic_payload("views", [("2026-09-17", 7, 5)], count=7),
+        http_error(404),
         http_error(404),
     )
     out_dir = tmp_path / "out"
@@ -643,9 +738,11 @@ def test_cli_write_mode_with_both_metrics_writes_four_files_and_shares_the_code_
     ]
     urls = [request.full_url for request in fake_http.requests]
     assert urls[0].endswith("/traffic/clones?per=day")
-    assert urls[2].endswith("/traffic/views?per=day")
+    assert urls[3].endswith("/traffic/views?per=day")
     assert urls[1].endswith("/contents/clones-ledger.json?ref=badges")
-    assert urls[3].endswith("/contents/views-ledger.json?ref=badges")
+    assert urls[4].endswith("/contents/views-ledger.json?ref=badges")
+    assert urls[2].endswith("/branches/badges")
+    assert urls[5].endswith("/branches/badges")
 
     clones_doc = json.loads((out_dir / "clones.json").read_text(encoding="utf-8"))
     views_doc = json.loads((out_dir / "views.json").read_text(encoding="utf-8"))
@@ -660,6 +757,7 @@ def test_cli_write_mode_takes_the_window_uniques_from_the_payload_not_the_ledger
 ) -> None:
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 5, 1)], count=5, uniques=99),
+        http_error(404),
         http_error(404),
     )
     out_dir = tmp_path / "out"
@@ -720,7 +818,7 @@ def test_cli_falls_back_to_github_token_when_clonometer_token_is_unset(
 ) -> None:
     monkeypatch.delenv(clonometer.TOKEN_ENV, raising=False)
     monkeypatch.setenv(clonometer.FALLBACK_TOKEN_ENV, "a-github-actions-token")
-    fake_http.queue(traffic_payload("clones", []), http_error(404))
+    fake_http.queue(traffic_payload("clones", []), http_error(404), http_error(404))
     assert clonometer.main([REPO]) == 0
     assert fake_http.requests[0].get_header("Authorization") == "Bearer a-github-actions-token"
 
@@ -729,7 +827,7 @@ def test_cli_honours_a_clonometer_api_override(
     fake_http, monkeypatch: pytest.MonkeyPatch, token_env
 ) -> None:
     monkeypatch.setenv(clonometer.API_ROOT_ENV, "http://127.0.0.1:9999")
-    fake_http.queue(traffic_payload("clones", []), http_error(404))
+    fake_http.queue(traffic_payload("clones", []), http_error(404), http_error(404))
     assert clonometer.main([REPO]) == 0
     assert fake_http.requests[0].full_url.startswith("http://127.0.0.1:9999/")
 
@@ -792,6 +890,7 @@ def test_cli_write_mode_writes_nothing_when_a_later_metric_fails(
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 1, 1)]),
         http_error(404),
+        http_error(404),
         http_error(403),
     )
     out_dir = tmp_path / "out"
@@ -819,6 +918,39 @@ def test_cli_write_mode_writes_nothing_when_the_guard_refuses_a_shrinking_total(
     assert "smaller than the previous total" in capsys.readouterr().err
 
 
+def test_cli_write_mode_writes_nothing_when_the_storage_branch_exists_but_the_ledger_does_not(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The end-to-end shape of the 2026-09-20 losses: exit 1, nothing written, one clear line."""
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 1, 1)]),
+        http_error(404),
+        {"name": "badges"},
+    )
+    out_dir = tmp_path / "out"
+    assert clonometer.main([REPO, "--write", str(out_dir)]) == 1
+    assert not out_dir.exists()
+    err = capsys.readouterr().err
+    assert "badges branch exists" in err
+    assert "clones-ledger.json is missing" in err
+    assert 'allow-restart to "true"' in err
+
+
+def test_cli_allow_restart_recovers_a_run_when_the_branch_exists_without_a_ledger(
+    fake_http, token_env, frozen_today, tmp_path: Path
+) -> None:
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 1, 1)], count=1),
+        http_error(404),
+    )
+    out_dir = tmp_path / "out"
+    assert clonometer.main([REPO, "--write", str(out_dir), "--allow-restart"]) == 0
+    # No branch-existence check at all: allow-restart is trusted outright.
+    assert len(fake_http.requests) == 2
+    ledger_doc = json.loads((out_dir / "clones-ledger.json").read_text(encoding="utf-8"))
+    assert ledger_doc["days"] == {"2026-09-17": {"count": 1, "uniques": 1}}
+
+
 def test_short_switches_to_millions_when_rounding_would_read_a_thousand_k() -> None:
     """999,950 rounds to 1000.0k, which is 1M, never '1000k'."""
     assert clonometer.short(999_949) == "999.9k"
@@ -829,7 +961,11 @@ def test_short_switches_to_millions_when_rounding_would_read_a_thousand_k() -> N
 def test_a_non_numeric_count_from_the_endpoint_is_one_line_not_a_traceback(
     fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    fake_http.queue(traffic_payload("clones", [("2026-09-17", "abc", 1)], count=5), http_error(404))
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", "abc", 1)], count=5),
+        http_error(404),
+        http_error(404),
+    )
     assert clonometer.main([REPO, "--write", str(tmp_path / "out")]) == 1
     captured = capsys.readouterr()
     assert captured.err.count("\n") == 1 and "non-numeric count" in captured.err
@@ -840,7 +976,9 @@ def test_a_non_numeric_count_from_the_endpoint_is_one_line_not_a_traceback(
 def test_a_write_target_that_is_a_file_is_one_line_not_a_traceback(
     fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404), http_error(404)
+    )
     target = tmp_path / "taken"
     target.write_text("a file, not a directory", encoding="utf-8")
     assert clonometer.main([REPO, "--write", str(target)]) == 1
@@ -862,7 +1000,9 @@ def test_a_trailing_slash_on_the_api_root_does_not_double_the_slash(
     fake_http, token_env, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(clonometer.API_ROOT_ENV, "https://ghe.example/api/v3/")
-    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404), http_error(404)
+    )
     assert clonometer.main([REPO]) == 0
     assert fake_http.requests[0].full_url.startswith("https://ghe.example/api/v3/repos/")
 
@@ -872,7 +1012,7 @@ def test_a_bad_timestamp_from_the_endpoint_is_one_line_not_a_traceback(
 ) -> None:
     payload = traffic_payload("clones", [("2026-09-17", 5, 1)], count=5)
     payload["clones"][0]["timestamp"] = "not-a-real-timestamp"
-    fake_http.queue(payload, http_error(404))
+    fake_http.queue(payload, http_error(404), http_error(404))
     assert clonometer.main([REPO, "--write", str(tmp_path / "out")]) == 1
     captured = capsys.readouterr()
     assert captured.err.count("\n") == 1 and "bad timestamp" in captured.err
@@ -1019,7 +1159,9 @@ def test_a_symlinked_output_directory_is_refused(
     real.mkdir()
     link = tmp_path / "link"
     link.symlink_to(real, target_is_directory=True)
-    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404), http_error(404)
+    )
     assert clonometer.main([REPO, "--write", str(link)]) == 1
     assert "symbolic link" in capsys.readouterr().err
     assert list(real.iterdir()) == []
@@ -1067,7 +1209,9 @@ def test_a_bad_gist_id_is_refused_before_any_request(
 def test_read_only_mode_ignores_gist_and_sends_no_patch(
     fake_http, token_env, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404), http_error(404)
+    )
     gist_id = "a" * 20
     assert clonometer.main([REPO, "--gist", gist_id]) == 0
     methods = [request.get_method() for request in fake_http.requests]
@@ -1076,7 +1220,9 @@ def test_read_only_mode_ignores_gist_and_sends_no_patch(
 
 
 def test_write_mode_without_gist_sends_no_patch(fake_http, token_env, tmp_path: Path) -> None:
-    fake_http.queue(traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404))
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 5, 1)], count=5), http_error(404), http_error(404)
+    )
     out_dir = tmp_path / "out"
     assert clonometer.main([REPO, "--write", str(out_dir)]) == 0
     methods = [request.get_method() for request in fake_http.requests]
@@ -1089,7 +1235,9 @@ def test_gist_patch_carries_exactly_the_numbers_files_byte_identical_to_disk(
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 12, 9)], count=12, uniques=9),
         http_error(404),
+        http_error(404),
         traffic_payload("views", [("2026-09-17", 7, 5)], count=7, uniques=5),
+        http_error(404),
         http_error(404),
         patch_request_response(),
     )
@@ -1114,6 +1262,7 @@ def test_gist_patch_never_carries_a_ledger_file(
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
         http_error(404),
+        http_error(404),
         patch_request_response(),
     )
     out_dir = tmp_path / "out"
@@ -1131,6 +1280,7 @@ def test_gist_token_env_is_used_when_set(
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
         http_error(404),
+        http_error(404),
         patch_request_response(),
     )
     gist_id = "c" * 20
@@ -1145,6 +1295,7 @@ def test_gist_falls_back_to_the_main_token_when_the_gist_token_env_is_unset(
     monkeypatch.delenv(clonometer.GIST_TOKEN_ENV, raising=False)
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        http_error(404),
         http_error(404),
         patch_request_response(),
     )
@@ -1161,6 +1312,7 @@ def test_a_gist_permission_failure_names_the_gist_scope_and_the_classic_token(
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
         http_error(404),
+        http_error(404),
         http_error(status),
     )
     gist_id = "e" * 20
@@ -1176,6 +1328,7 @@ def test_a_gist_failure_leaves_the_branch_files_on_disk_and_prints_what_was_writ
 ) -> None:
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        http_error(404),
         http_error(404),
         http_error(500),
     )
@@ -1194,6 +1347,7 @@ def test_a_gist_other_http_failure_is_one_line_naming_the_status(
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
         http_error(404),
+        http_error(404),
         http_error(500),
     )
     gist_id = "1" * 20
@@ -1208,6 +1362,7 @@ def test_gist_success_prints_a_line_naming_the_gist_url(
 ) -> None:
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 5, 1)], count=5),
+        http_error(404),
         http_error(404),
         patch_request_response(),
     )
