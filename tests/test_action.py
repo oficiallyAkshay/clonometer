@@ -26,7 +26,7 @@ import shutil
 import subprocess
 import threading
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import pytest
 import yaml
@@ -67,9 +67,16 @@ def _git(*args: str, **kwargs) -> subprocess.CompletedProcess:
 # --------------------------------------------------------------------------
 
 
-def test_action_yml_parses_and_declares_exactly_the_five_inputs() -> None:
+def test_action_yml_parses_and_declares_exactly_the_six_inputs() -> None:
     inputs = _load_action()["inputs"]
-    assert set(inputs.keys()) == {"token", "branch", "metrics", "gist", "gist_token"}
+    assert set(inputs.keys()) == {
+        "token",
+        "branch",
+        "metrics",
+        "gist",
+        "gist_token",
+        "allow-restart",
+    }
     assert inputs["token"]["required"] is True
     assert "default" not in inputs["token"]
     assert inputs["branch"]["default"] == "badges"
@@ -77,6 +84,8 @@ def test_action_yml_parses_and_declares_exactly_the_five_inputs() -> None:
     for name in ("gist", "gist_token"):
         assert inputs[name]["required"] is False
         assert inputs[name]["default"] == ""
+    assert inputs["allow-restart"]["required"] is False
+    assert inputs["allow-restart"]["default"] == "false"
 
 
 def test_action_yml_is_a_composite_action() -> None:
@@ -234,6 +243,13 @@ def test_count_step_reads_both_gist_inputs_through_env_and_masks_the_gist_token(
     assert "--gist" in count["run"]
 
 
+def test_count_step_reads_allow_restart_through_env_and_only_passes_the_flag_when_true() -> None:
+    count = _step("count")
+    assert count["env"]["CLONOMETER_ALLOW_RESTART"] == "${{ inputs['allow-restart'] }}"
+    assert "--allow-restart" in count["run"]
+    assert 'CLONOMETER_ALLOW_RESTART:-false}" = "true"' in count["run"]
+
+
 # --------------------------------------------------------------------------
 # A fake GitHub API: traffic from canned rows, contents from a bare repo.
 # --------------------------------------------------------------------------
@@ -300,6 +316,23 @@ def _make_handler(state: _FakeState) -> type[http.server.BaseHTTPRequestHandler]
                     return
                 content = base64.b64encode(result.stdout).decode("ascii")
                 self._send_json(200, {"content": content, "encoding": "base64"})
+                return
+
+            if split.path.startswith(f"{prefix}/branches/"):
+                branch = unquote(split.path[len(f"{prefix}/branches/") :])
+                result = _git(
+                    "-C",
+                    str(state.bare_repo),
+                    "rev-parse",
+                    "--verify",
+                    "--quiet",
+                    f"refs/heads/{branch}",
+                    capture_output=True,
+                )
+                if result.returncode != 0:
+                    self._send_json(404, {"message": "Not Found"})
+                    return
+                self._send_json(200, {"name": branch})
                 return
 
             self._send_json(404, {"message": "Not Found"})
@@ -598,7 +631,12 @@ def test_publish_refuses_the_repositorys_default_branch(
     seed = tmp_path / "seed"
     _git("init", "--quiet", "-b", default, str(seed), check=True)
     (seed / "README.md").write_text("history worth keeping\n", encoding="utf-8")
-    _git("-C", str(seed), "add", "README.md", check=True)
+    # A real, valid ledger for both metrics: this test is about the default
+    # branch refusal, not about a missing ledger, so the branch must have one.
+    empty_ledger = json.dumps({"schema": 1, "repo": REPO, "since": "2026-09-01", "days": {}})
+    (seed / "clones-ledger.json").write_text(empty_ledger, encoding="utf-8")
+    (seed / "views-ledger.json").write_text(empty_ledger, encoding="utf-8")
+    _git("-C", str(seed), "add", "README.md", "clones-ledger.json", "views-ledger.json", check=True)
     _git(
         "-C",
         str(seed),
@@ -619,7 +657,11 @@ def test_publish_refuses_the_repositorys_default_branch(
     publish = _run_step("publish", env, tmp_path)
     assert publish.returncode == 1
     assert "default branch" in publish.stderr
-    assert _tree_files(bare_repo, default) == {"README.md"}
+    assert _tree_files(bare_repo, default) == {
+        "README.md",
+        "clones-ledger.json",
+        "views-ledger.json",
+    }
     assert _commit_count(bare_repo, default) == 1
 
 
@@ -706,7 +748,14 @@ def test_a_symlink_planted_on_the_branch_is_replaced_not_followed(
     seed = tmp_path / "seed"
     _git("init", "--quiet", "-b", "badges", str(seed), check=True)
     (seed / "clones.json").symlink_to(victim)
-    _git("-C", str(seed), "add", "clones.json", check=True)
+    # A real, valid ledger for both metrics: this test is about the symlink
+    # on clones.json, not about a missing ledger, so the branch must have one.
+    empty_ledger = json.dumps({"schema": 1, "repo": REPO, "since": "2026-09-01", "days": {}})
+    (seed / "clones-ledger.json").write_text(empty_ledger, encoding="utf-8")
+    (seed / "views-ledger.json").write_text(empty_ledger, encoding="utf-8")
+    _git(
+        "-C", str(seed), "add", "clones.json", "clones-ledger.json", "views-ledger.json", check=True
+    )
     _git(
         "-C",
         str(seed),
@@ -738,6 +787,75 @@ def test_a_symlink_planted_on_the_branch_is_replaced_not_followed(
     ).stdout.split()[0]
     assert mode == "100644"
     assert json.loads(_show(bare_repo, "badges", "clones.json"))["metric"] == "clones"
+
+
+# --------------------------------------------------------------------------
+# Silent ledger loss: the badges branch survives another job's force push,
+# but the ledger it carried does not.
+# --------------------------------------------------------------------------
+
+
+def _push_orphan_badges_branch_without_a_ledger(seed: Path, bare_repo: Path) -> None:
+    """What another workflow rewriting the badges branch looks like from here: a
+    force-pushed orphan branch that holds something, but never clonometer's ledger."""
+    _git("init", "--quiet", "-b", "badges", str(seed), check=True)
+    (seed / "unrelated.txt").write_text("not a ledger\n", encoding="utf-8")
+    _git("-C", str(seed), "add", "unrelated.txt", check=True)
+    _git(
+        "-C",
+        str(seed),
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "orphan badges branch from another workflow",
+        check=True,
+    )
+    _git("-C", str(seed), "push", "--quiet", "--force", str(bare_repo), "HEAD:badges", check=True)
+
+
+def test_end_to_end_refuses_when_the_badges_branch_survives_without_its_ledger(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    _push_orphan_badges_branch_without_a_ledger(tmp_path / "seed", bare_repo)
+
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    count = _run_step("count", env, tmp_path)
+    assert count.returncode == 1
+    assert "badges branch exists" in count.stderr
+    assert "clones-ledger.json is missing" in count.stderr
+    assert "force-pushed" in count.stderr
+    assert 'allow-restart to "true"' in count.stderr
+    # The composite action stops here, so publish never runs and the branch
+    # this run would have overwritten is left exactly as the other job left it.
+    assert _commit_count(bare_repo, "badges") == 1
+    assert _tree_files(bare_repo, "badges") == {"unrelated.txt"}
+
+
+def test_end_to_end_allow_restart_recovers_one_run_after_a_ledger_is_lost(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    _push_orphan_badges_branch_without_a_ledger(tmp_path / "seed", bare_repo)
+
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    env["CLONOMETER_ALLOW_RESTART"] = "true"
+    count = _run_step("count", env, tmp_path)
+    assert count.returncode == 0, count.stderr
+    publish = _run_step("publish", env, tmp_path)
+    assert publish.returncode == 0, publish.stderr
+
+    # A fresh ledger, not last run's total: the recovery starts the count over.
+    ledger = json.loads(_show(bare_repo, "badges", "clones-ledger.json"))
+    assert ledger["days"] == {
+        "2026-09-16": {"count": 5, "uniques": 4},
+        "2026-09-17": {"count": 7, "uniques": 5},
+    }
+    # The other job's file is untouched: publish only ever replaces what this
+    # run itself produced, never sweeps the branch clean.
+    assert _tree_files(bare_repo, "badges") == EXPECTED_FILES | {"unrelated.txt"}
 
 
 # --------------------------------------------------------------------------
