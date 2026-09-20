@@ -118,6 +118,7 @@ Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into
 | coverage upload | `test`, on 3.14 only | no |
 | gate | `ci` | yes |
 | dependency audit | `audit`, weekly and on a pull request touching `pyproject.toml` | no |
+| dependency review | `dependency-review`, on pull requests | no, comments on the pull request when it finds a known-vulnerable package |
 | codeql | push, pull request and weekly | no, results in the Security tab |
 | scorecard | push to main and weekly | no |
 | dependabot auto-merge | pull requests from Dependabot | no, it only arms auto-merge; the checks above still gate the merge itself |
