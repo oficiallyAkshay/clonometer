@@ -1,6 +1,6 @@
 [project]
 name = "clonometer"
-version = "1.0.1"
+version = "1.1.0"
 requires-python = ">=3.11"
 # Standard library only, as a policy: the script runs on a bare runner with
 # nothing to resolve.

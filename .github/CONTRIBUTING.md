@@ -59,6 +59,15 @@ jobs:
         with: {token: ${{ secrets.TRAFFIC_TOKEN }}}
 ```
 
+| Action input | Default | Meaning |
+| --- | --- | --- |
+| `token` | required | Fine-grained token with Administration read and Contents write |
+| `branch` | `badges` | Storage branch the ledger and numbers files live on |
+| `metrics` | `clones` | `clones` or `clones,views` |
+| `gist` | empty | Gist id to mirror the numbers files into, for a private repository |
+| `gist_token` | empty | Classic token with the gist scope; the `token` input is used when empty |
+| `allow-restart` | `false` | For one run only: start a fresh ledger when the storage branch exists but its ledger file is missing, instead of refusing. Set it back to `false` (or remove it) right after; see the storage branch table below for why |
+
 ## The numbers file and the CLI
 
 | Key | Type | Meaning |
@@ -81,6 +90,13 @@ jobs:
 | `clones.json`, `clones-ledger.json` | The numbers file above and its ledger |
 | `views.json`, `views-ledger.json` | The same for views, when views are on |
 
+The storage branch has exactly one writer: clonometer's own publish step,
+which force-pushes it fresh every run. Any other job that pushes to it with
+`--force`, or that runs `git init -b badges` and pushes an orphan branch of
+its own, deletes the ledger. When that happens, the next clonometer run
+refuses instead of silently starting a new lifetime count from GitHub's
+14-day window; `allow-restart` is the one-run recovery for it, above.
+
 The recipe behind every badge in the README: point shields at the numbers file, on the storage branch for a public repository or the gist mirror for a private one.
 
 ```
@@ -95,7 +111,7 @@ https://img.shields.io/badge/dynamic/json?url=https://gist.githubusercontent.com
 Merge: each day's fields become the larger of the ledger's value and the new one, no day is ever removed. Guard: a lifetime total below the previous run's is refused and nothing is written.
 
 ```
-clonometer OWNER/NAME [--write DIR] [--branch badges] [--metrics clones|clones,views] [--gist ID]
+clonometer OWNER/NAME [--write DIR] [--branch badges] [--metrics clones|clones,views] [--gist ID] [--allow-restart]
 ```
 
 | Variable or exit | Meaning |
