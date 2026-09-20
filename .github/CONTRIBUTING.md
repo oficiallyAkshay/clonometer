@@ -38,21 +38,12 @@ Reject any cut that a test import or a stated spec line requires.
 CodeRabbit reviews every pull request from its GitHub App, and its comments
 are advisory.
 
-## For agents
+Start with [AGENTS.md](../AGENTS.md) at the repo root for the layout and a
+pointer back here for the rest.
 
-The layout.
+## The consumer workflow
 
-| Path | What it holds |
-| --- | --- |
-| `clonometer.py` | The whole runtime: fetch, ledger merge, the numbers file, the CLI |
-| `action.yml` | The composite action: three bash steps, fetch, count and publish |
-| `tests/` | pytest, fake HTTP, fake ledger, fake git |
-| `scripts/` | The hero drawing script |
-| `.github/workflows/` | CI gates and the dogfood workflow |
-| `assets/` | The emoji icon and the social preview image |
-| `SECURITY.md` | How to report a vulnerability, and what the token's blast radius is |
-
-**The consumer workflow.** What a repository installing clonometer adds, a daily schedule pinned to a commit:
+What a repository installing clonometer adds, a daily schedule pinned to a commit:
 
 ```yaml
 name: clonometer
@@ -68,7 +59,7 @@ jobs:
         with: {token: ${{ secrets.TRAFFIC_TOKEN }}}
 ```
 
-**The numbers file and the CLI.**
+## The numbers file and the CLI
 
 | Key | Type | Meaning |
 | --- | --- | --- |
@@ -116,7 +107,7 @@ clonometer OWNER/NAME [--write DIR] [--branch badges] [--metrics clones|clones,v
 
 Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into that gist after the files are on disk; a 401, 403 or 404 there names the gist scope of a classic token.
 
-**What CI runs.**
+## What CI runs
 
 | Check | Runs on | Blocks merge |
 | --- | --- | --- |
@@ -131,7 +122,7 @@ Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into
 | scorecard | push to main and weekly | no |
 | dependabot auto-merge | pull requests from Dependabot | no, it only arms auto-merge; the checks above still gate the merge itself |
 
-**Test plan a change must satisfy.**
+## Test plan a change must satisfy
 
 | Area | What a change there must prove |
 | --- | --- |
@@ -139,7 +130,7 @@ Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into
 | `action.yml` | The end-to-end test still runs the script step against a fake API and a throwaway bare repository, and the branch holds exactly one commit afterward |
 | Docs | Every URL and relative link the README and this file name resolves |
 
-**Git.**
+## Git
 
 - One branch per pull request, under `.claude/worktrees/<name>`, branch
   `claude/<name>`.
@@ -150,6 +141,8 @@ Gist: with --gist, write mode PATCHes the numbers files, never the ledgers, into
 - History stays under the `oficiallyAkshay <186180952+oficiallyAkshay@users.noreply.github.com>`
   identity.
 
-**The token.** Traffic reads need a fine-grained PAT scoped to Administration
+## The token
+
+Traffic reads need a fine-grained PAT scoped to Administration
 read and Contents write on that repository only, with an expiry, stored as
 the secret `TRAFFIC_TOKEN`. The gist mirror needs a second, classic token with only the `gist` scope, stored as `GIST_TOKEN`; a fine-grained token cannot write a gist.

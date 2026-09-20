@@ -147,7 +147,7 @@ def test_the_contributing_workflow_snippet_matches_the_consumer_workflow_file() 
 
     assert "workflow_dispatch" in yaml_block
     assert "permissions: {}" in yaml_block
-    assert text.index("## For agents") < text.index(yaml_block_match.group(0))
+    assert text.index("## The consumer workflow") < text.index(yaml_block_match.group(0))
     assert "(.github/consumer-workflow.yml)" not in text
     assert "TRAFFIC_TOKEN" in text
     assert "mkdir" not in text and "curl" not in text
@@ -175,6 +175,21 @@ def test_contributing_documents_every_key_in_the_numbers_file() -> None:
     ):
         assert f"`{key}`" in text, f"CONTRIBUTING does not document {key}"
     assert "## For agents" not in README.read_text("utf-8")
+    assert "## For agents" not in text
+
+
+def test_the_agent_block_lives_in_agents_md_under_forty_lines() -> None:
+    """CONTRIBUTING no longer carries the agent block; AGENTS.md does, and points back."""
+    agents_md = REPO_ROOT / "AGENTS.md"
+    assert agents_md.is_file()
+    text = agents_md.read_text("utf-8")
+    non_blank_lines = [line for line in text.splitlines() if line.strip()]
+    assert len(non_blank_lines) < 40
+    assert "clonometer.py" in text
+    assert "(.github/CONTRIBUTING.md)" in text
+
+    contributing_text = CONTRIBUTING.read_text("utf-8")
+    assert "(../AGENTS.md)" in contributing_text
 
 
 def test_the_readme_wears_its_own_badges_made_from_the_first_two_recipes() -> None:
@@ -189,8 +204,7 @@ def test_the_badges_section_is_a_six_cell_matrix_of_live_badges() -> None:
     """Clones and Views, each crossed with This week, All time and Both: six live badges."""
     text = README.read_text(encoding="utf-8")
     section_start = text.index("## Badges")
-    section_end = text.index("## Security")
-    section = text[section_start:section_end]
+    section = text[section_start:]
 
     assert "This week" in section
     assert "All time" in section
