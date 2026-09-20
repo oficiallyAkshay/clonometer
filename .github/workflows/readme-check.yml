@@ -31,6 +31,6 @@ jobs:
       # tomllib) needs 3.11+; ubuntu-latest's own python3 already resolves
       # to 3.12 (see ci.yml's test matrix comment), so no extra setup step
       # is needed.
-      - uses: oficiallyAkshay/readmerlin@65882c2047e9170dbe2132ada0f38c4c127e5b91 # v1.0.0
+      - uses: oficiallyAkshay/readmerlin@63f78b5379bcdeff23a443ecf165ceb43544eebb # v1.0.2
         with:
           exec: "true"
