@@ -234,6 +234,33 @@ def fetch_traffic(
     return payload
 
 
+def branch_exists(api_root: str, repo: str, branch: str, token: str) -> bool:
+    """True when the storage branch is on the remote, false when GitHub has never heard of it.
+
+    Called only when a ledger file has just answered 404, to tell apart the
+    two things a 404 from the contents endpoint can mean: the branch was
+    never created, which is what an ordinary first run looks like, or the
+    branch exists but the file is gone, which is what another job force
+    pushing an orphan branch over it looks like. The contents endpoint's own
+    404 carries no way to tell those apart, so this is the second look.
+    """
+    url = f"{api_root}/repos/{repo}/branches/{urllib.parse.quote(branch, safe='')}"
+    try:
+        _get_json(url, token)
+    except urllib.error.HTTPError as error:
+        if error.code == HTTP_NOT_FOUND:
+            return False
+        hint = (
+            "; the token needs Contents read on this repository"
+            if error.code == HTTP_FORBIDDEN
+            else ""
+        )
+        raise ClonometerError(
+            f"could not check whether the {branch} branch exists: HTTP {error.code}{hint}",
+        ) from error
+    return True
+
+
 def read_ledger(
     api_root: str,
     repo: str,
@@ -241,15 +268,23 @@ def read_ledger(
     token: str,
     file_name: str,
     today: str,
+    *,
+    allow_restart: bool = False,
 ) -> dict:
     """The previous ledger, or a freshly started one when there is none yet.
 
-    A 404 here means either the storage branch or the file does not exist,
-    which is exactly what the first run looks like, so it starts an empty
-    ledger. Any other failure, a bad status, a body that will not decode, a
-    schema that does not match, is refused rather than treated the same way,
-    because silently restarting would erase the lifetime total this whole
-    module exists to protect.
+    A 404 here means either the storage branch or the file does not exist.
+    When the branch does not exist either, that is exactly what the first
+    run looks like, so it starts an empty ledger. When the branch does
+    exist, the file is missing from a branch that should hold it, which is
+    what another workflow force pushing an orphan branch over it (deleting
+    the ledger) looks like; that is refused rather than silently restarted,
+    because a quiet restart is exactly the lifetime total loss this module
+    exists to prevent. ``allow_restart`` is the one escape hatch: set for a
+    single run, it skips the check and starts a fresh ledger anyway. Any
+    other failure, a bad status, a body that will not decode, a schema that
+    does not match, is refused the same way a missing file on an existing
+    branch is.
     """
     # Percent-encoded so a branch such as "a#b" cannot truncate the ref at
     # the fragment marker and silently ask for a different branch.
@@ -258,6 +293,13 @@ def read_ledger(
         payload = _get_json(url, token)
     except urllib.error.HTTPError as error:
         if error.code == HTTP_NOT_FOUND:
+            if not allow_restart and branch_exists(api_root, repo, branch, token):
+                raise ClonometerError(
+                    f"the {branch} branch exists but {file_name} is missing from it; "
+                    f"another workflow likely force-pushed over {branch} and deleted the "
+                    'ledger; set allow-restart to "true" for one run to start a fresh '
+                    "ledger, then remove it",
+                ) from error
             return {"schema": 1, "repo": repo, "since": today, "days": {}}
         hint = (
             "; the token needs Contents read on this repository"
@@ -549,6 +591,15 @@ def _build_parser() -> argparse.ArgumentParser:
             "whose branch shields cannot read (write mode only)"
         ),
     )
+    parser.add_argument(
+        "--allow-restart",
+        action="store_true",
+        help=(
+            "start a fresh ledger when the storage branch exists but its ledger file is "
+            "missing, instead of refusing; use for one run after another workflow has "
+            "deleted the branch, then turn it back off"
+        ),
+    )
     return parser
 
 
@@ -571,7 +622,15 @@ def _compute(
     for metric in parse_metrics(args.metrics):
         traffic = fetch_traffic(api_root, args.repo, token, metric, token_source)
         ledger_file = f"{metric}-ledger.json"
-        previous = read_ledger(api_root, args.repo, args.branch, token, ledger_file, today)
+        previous = read_ledger(
+            api_root,
+            args.repo,
+            args.branch,
+            token,
+            ledger_file,
+            today,
+            allow_restart=args.allow_restart,
+        )
         old_total = lifetime(previous)
         merged = merge(previous, traffic.get(metric) or [])
         # The ledger follows the repository it was read for, so a rename does
