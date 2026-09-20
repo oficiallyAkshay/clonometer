@@ -17,6 +17,7 @@
 <p align="center">
   <a href="#badges"><img alt="clones of this repository, last seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&query=$.badge&label=clones&logo=github&logoColor=white"></a>
   <a href="#badges"><img alt="views of this repository, last seven days and all time" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/views.json&query=$.badge&label=views&logo=github&logoColor=white"></a>
+  <a href="https://www.bestpractices.dev/projects/14705"><img alt="OpenSSF Best Practices, passing" src="https://www.bestpractices.dev/projects/14705/badge"></a>
 </p>
 
 clonometer samples GitHub's clone count every day and keeps a lifetime ledger on a branch of your repository, or mirrored to a gist for a private one. It writes a numbers file that any badge can read.
@@ -54,8 +55,6 @@ clonometer needs one fine-grained token scoped to your repository, Administratio
 - ❌ adds a dependency
 
 By default, clonometer counts clones only; set `metrics` to `clones,views` to add views. The ledger's home branch is `badges` by default; set `branch` to move it. By default, no gist mirror runs; set `gist` to turn it on; a private repository's badge only works through the mirror. Counting starts the day you install it, with up to a day of delay, and counts include bots and CI, this action's own runs included; a scheduled workflow pauses after 60 days without a commit, and a gap past 13 days loses rows.
-
-<p align="center"><a href="https://www.bestpractices.dev/projects/14705"><img alt="OpenSSF Best Practices, passing" src="https://www.bestpractices.dev/projects/14705/badge"></a></p>
 
 ## Badges
 
