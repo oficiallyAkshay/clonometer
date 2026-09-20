@@ -25,4 +25,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # exec runs the count-source commands from readmerlin.json so every
+      # count badge is verified against the tree on every push, not only
+      # when checked by hand. The one command here (python3's stdlib
+      # tomllib) needs 3.11+; ubuntu-latest's own python3 already resolves
+      # to 3.12 (see ci.yml's test matrix comment), so no extra setup step
+      # is needed.
       - uses: oficiallyAkshay/readmerlin@65882c2047e9170dbe2132ada0f38c4c127e5b91 # v1.0.0
+        with:
+          exec: "true"
