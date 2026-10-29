@@ -2,7 +2,7 @@
   "stars": 1,
   "forks": 0,
   "watchers": 1,
-  "openIssues": 0,
+  "openIssues": 3,
   "downloads": {
     "total": null,
     "last30d": null
@@ -11,10 +11,12 @@
     "lifetime": 2532,
     "last14d": 312
   },
-  "views": {
-    "lifetime": 15,
-    "last14d": 1
+  "totalCounted": {
+    "clones": 16137,
+    "repos": 8,
+    "updated": "2026-10-29",
+    "source": "Sum of lifetime clones (total) from the badges branch clones.json of the 8 public repositories that run clonometer, fetched 2026-10-29."
   },
   "updated": "2026-10-29",
-  "source": "GitHub API repos/oficiallyAkshay/clonometer (stars, forks, watchers; open issues counted from the issues list, pull requests excluded) and the badges branch clones.json and views.json (clones, views), fetched 2026-10-29. Downloads: no release assets exist, so none shown."
+  "source": "GitHub API repos/oficiallyAkshay/clonometer (stars, forks, watchers, open issues) and the badges branch clones.json (clones), fetched 2026-10-29. Downloads: no release assets exist, so none shown."
 }

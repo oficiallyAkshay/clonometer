@@ -10,7 +10,7 @@ precision highp float;
 out vec4 oc;
 uniform vec2 uRes; uniform float uTime;
 uniform vec3 uTgt; uniform float uSpan, uYaw, uPitch, uShiftY;
-uniform float uTrap, uKeep, uDebug;
+uniform float uTrap, uKeep, uDebug, uHatch;
 uniform float uSpot, uCover, uCollapse, uGlow, uStill;
 uniform float uAng[7], uVel[7], uDX[7], uSX[2];
 uniform vec4 uBead[36]; uniform float uBA[36];
@@ -219,7 +219,7 @@ void main(){
     float gr=fbm(q*3.)*0.5+fbm(q*26.)*0.3+fbm(q*90.)*0.12; float vein=smoothstep(0.03,0.0,abs(sin(q.x*2.2+q.y*1.4+fbm(q*1.6)*7.)))*0.5+smoothstep(0.02,0.0,abs(sin(q.x*-1.3+q.y*3.1+fbm(q*2.7)*9.)))*0.3; float fleck=step(0.985,hash(floor(q*140.)))*clamp(1.-fp*140.,0.,1.); float pore=step(0.97,hash(floor(q*260.+7.)))*clamp(1.-fp*260.,0.,1.);
     alb=vec3(0.40,0.385,0.36)*(0.80+0.4*gr)*(1.-0.22*vein)*(1.+0.04*(hash(floor(q*220.))-0.5)*clamp(1.-fp*220.,0.,1.))*(1.+0.5*fleck-0.4*pore);
     if(n.y>0.9&&p.y>-2.0&&p.x>3.9){ float m2=0.; m2+=smoothstep(0.07,0.045,length(p.xz-vec2(4.15,-0.1))); m2+=smoothstep(0.06,0.04,length(p.xz-vec2(4.3,0.2))); m2+=smoothstep(0.065,0.04,length(p.xz-vec2(4.4,-0.35))); m2+=smoothstep(0.05,0.03,length(p.xz-vec2(4.08,0.45))); m2+=smoothstep(0.055,0.035,length(p.xz-vec2(4.48,0.05))); alb=mix(alb,alb*0.55+vec3(0.06,0.06,0.04),clamp(m2,0.,1.)*0.6); }
-    if(n.z>0.8&&p.z>0.85){ vec2 hq=p.xy-vec2(2.2,-3.7); float seam=smoothstep(0.012,0.0,abs(max(abs(hq.x)-0.42,abs(hq.y)-0.3))); alb*=1.-0.55*seam; alb=mix(alb,vec3(0.22,0.19,0.12),smoothstep(0.04,0.03,length(hq-vec2(0.3,0.)))); }
+    if(uHatch>0.5&&n.z>0.8&&p.z>0.85){ vec2 hq=p.xy-vec2(2.2,-3.7); float seam=smoothstep(0.012,0.0,abs(max(abs(hq.x)-0.42,abs(hq.y)-0.3))); alb*=1.-0.55*seam; alb=mix(alb,vec3(0.22,0.19,0.12),smoothstep(0.04,0.03,length(hq-vec2(0.3,0.)))); }
     rough=0.42; spec_k=0.7;
   } else if(id>0.5&&id<1.5){ // titanium housing
     F0=vec3(0.50,0.52,0.55); metal=1.; rough=0.36;
@@ -315,17 +315,10 @@ void main(){
   } else if(id>9.5&&id<10.5){ // printed paper label
     metal=0.; F0=vec3(0.04); rough=0.8;
     vec2 pu=vec2((p.x+2.8)/5.6,(-2.21-p.y)/0.72); float lodP=max(0.,log2(fp*400.));
-    float fib=vn(vec2(pu.x*420.,pu.y*40.))*0.5+vn(vec2(pu.x*60.+3.,pu.y*500.))*0.5;
-    vec3 paper=vec3(0.86,0.81,0.70)*(0.93+0.12*fib)*(0.96+0.06*fbm(pu*9.));
-    alb=paper;
+    alb=vec3(0.95,0.94,0.9);                                    // clean flat card stock
     if(n.z>0.5){
       vec4 f=textureLod(tPlq,pu,lodP);
-      float e=exp2(lodP)/2240.;
-      float gx=textureLod(tPlq,pu+vec2(e,0.),lodP).r-textureLod(tPlq,pu-vec2(e,0.),lodP).r;
-      float gy=textureLod(tPlq,pu+vec2(0.,e*7.78),lodP).r-textureLod(tPlq,pu-vec2(0.,e*7.78),lodP).r;
-      n=normalize(n+vec3(gx,-gy,0.)*0.35);                     // letterpress bite
-      alb=mix(paper,vec3(0.06,0.055,0.05)*(0.9+0.2*fib),f.r*0.96);
-      if(f.g>0.5){ F0=vec3(0.06); rough=0.12; alb=mix(alb,vec3(0.75,0.74,0.7),0.35); }   // clear adhesive corners
+      alb=mix(alb,vec3(0.02,0.02,0.025),f.r);                  // crisp black print, no relief, no noise
     }
   } else { // drums
     vec2 dv=vec2(p.z-ZC,p.y);
@@ -525,10 +518,6 @@ void main(){
     brass(1.9, -1.58, 3.5, -1.12); frame(1.9, -1.58, 3.5, -1.12);
     text('SERIAL No. 0001', 2.7, -1.32, 0.075, 'center', 700, 3);
     text('CLONOMETER', 2.7, -1.5, 0.06, 'center', 600, 4);
-    // gauge plate
-    brass(-3.72, -1.58, -2.32, -0.80); frame(-3.72, -1.58, -2.32, -0.80);
-    text('GITHUB KEEPS', -3.02, -1.02, 0.1, 'center', 700, 3);
-    text('14 DAYS', -3.02, -1.36, 0.17, 'center', 800, 4);
     // upper strip, shown when the cover is down
     text('CLONOMETER', -3.2, 1.3, 0.2, 'left', 800, 14);
     text('No. 0001', 1.7, 1.3, 0.2, 'right', 700, 6);
@@ -567,21 +556,28 @@ void main(){
   }
 
   function drawPlaque() {
-    var c = cv(2240, 288), x = c.getContext('2d');
+    var K = 2, W = 2240, H = 288, c = cv(W * K, H * K), x = c.getContext('2d');
     x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
+    x.scale(K, K);
     x.globalCompositeOperation = 'lighter';
-    x.strokeStyle = '#f00'; x.lineWidth = 3; x.strokeRect(22, 22, c.width - 44, c.height - 44);
-    x.strokeRect(34, 34, c.width - 68, c.height - 68);
-    x.fillStyle = '#f00'; x.textAlign = 'left';
-    x.font = '800 96px ' + SANS; x.letterSpacing = '-1px'; x.fillText('clonometer', 100, 120);
-    x.font = '400 62px ' + SANS; x.letterSpacing = '0px'; x.fillText('In continuous service since day 1', 100, 186);
-    x.fillRect(100, 206, c.width - 200, 3);
-    x.font = '600 46px ' + SANS; x.letterSpacing = '5px'; x.fillText('TITANIUM, BRASS, GLASS, CERAMIC, 2026', 100, 252);
-    x.textAlign = 'right'; x.fillText('ACC. NO. 0001', c.width - 100, 252);
-    x.fillStyle = '#0f0'; x.textAlign = 'left';
-    [[0, 0, 1, 1], [c.width, 0, -1, 1], [0, c.height, 1, -1], [c.width, c.height, -1, -1]].forEach(function (m) {
-      x.beginPath(); x.moveTo(m[0], m[1]); x.lineTo(m[0] + m[2] * 90, m[1]); x.lineTo(m[0], m[1] + m[3] * 90); x.closePath(); x.fill();
-    });
+    x.fillStyle = '#f00'; x.strokeStyle = '#f00'; x.lineWidth = 5;
+    x.strokeRect(14, 14, W - 28, H - 28);
+    var M = 58, avail = W - 2 * M;
+    function fit(str, weight, size, sp, maxW) {            // largest size whose width fits maxW
+      for (var s = size; s > 20; s -= 2) { x.font = weight + ' ' + s + 'px ' + SANS; x.letterSpacing = sp + 'px'; if (x.measureText(str).width <= maxW) return s; }
+      return 20;
+    }
+    var t1 = 'clonometer', t2 = 'In continuous service since day 1';
+    var s1 = 140; x.font = '800 ' + s1 + 'px ' + SANS; x.letterSpacing = '-2px'; var w1 = x.measureText(t1).width;
+    var s2 = fit(t2, 500, 92, 0, avail - w1 - 90);
+    x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+    x.font = '800 ' + s1 + 'px ' + SANS; x.letterSpacing = '-2px'; x.fillText(t1, M, 140);
+    x.font = '500 ' + s2 + 'px ' + SANS; x.letterSpacing = '0px'; x.textAlign = 'right'; x.fillText(t2, W - M, 140);
+    x.fillRect(M, 168, avail, 4);
+    var t3 = 'TITANIUM, BRASS, GLASS, CERAMIC, 2026', t4 = 'ACC. NO. 0001';
+    var s3 = fit(t3, 700, 64, 4, avail - 560);
+    x.font = '700 ' + s3 + 'px ' + SANS; x.letterSpacing = '4px'; x.textAlign = 'left'; x.fillText(t3, M, 244);
+    x.textAlign = 'right'; x.fillText(t4, W - M, 244);
     return c;
   }
   var gauge = { c: cv(512, 410) };
@@ -590,8 +586,6 @@ void main(){
     var g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#dcff4e'); g.addColorStop(1, '#bff01a');
     x.fillStyle = g; x.fillRect(0, 0, w, h);
     x.fillStyle = '#0d1114';
-    x.font = '700 30px ' + MONO; x.letterSpacing = '4px'; x.textAlign = 'left'; x.fillText('14 DAYS', 30, 58);
-    x.textAlign = 'right'; x.fillText('GITHUB', w - 30, 58);
     var sum = win.reduce(function (a, b) { return a + b; }, 0);
     x.letterSpacing = '0px'; x.textAlign = 'left'; x.font = '800 118px ' + SANS;
     x.fillText(sum.toLocaleString('en-US'), 26, 190);
@@ -620,7 +614,7 @@ void main(){
     var pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
     if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { console.warn(gl.getProgramInfoLog(pr)); return null; }
     gl.useProgram(pr);
-    var U = {}; ['uRes', 'uTime', 'uTgt', 'uSpan', 'uYaw', 'uPitch', 'uShiftY', 'uSpot', 'uCover', 'uCollapse', 'uGlow', 'uStill', 'uAng[0]', 'uVel[0]', 'uDX[0]', 'uSX[0]', 'uTrap', 'uKeep', 'uDebug', 'uBead[0]', 'uBA[0]', 'tDig', 'tFace', 'tCov', 'tGau', 'tPlq']
+    var U = {}; ['uRes', 'uTime', 'uTgt', 'uSpan', 'uYaw', 'uPitch', 'uShiftY', 'uSpot', 'uCover', 'uCollapse', 'uGlow', 'uStill', 'uAng[0]', 'uVel[0]', 'uDX[0]', 'uSX[0]', 'uTrap', 'uKeep', 'uDebug', 'uHatch', 'uBead[0]', 'uBA[0]', 'tDig', 'tFace', 'tCov', 'tGau', 'tPlq']
       .forEach(function (n) { U[n] = gl.getUniformLocation(pr, n); });
     var aniso = gl.getExtension('EXT_texture_filter_anisotropic');
     function tex(unit, canvasEl, wrapT) {
@@ -647,7 +641,7 @@ void main(){
     var S = {
       reduce: !!opts.reduce, scroll: 0, scrollS: 0, collapse: false, cov: 0, cam: 0, glow: 0,
       drums: [], scale: 1, w: 1, h: 1, running: false, visible: true, onFrame: null, lastCam: null,
-      still: !!opts.reduce
+      still: !!opts.reduce, hatch: !!opts.hatch
     };
     for (var i = 0; i < 7; i++) S.drums.push({ a: 0, v: 0, tg: 0, k: 100, t0: 0 });
 
@@ -727,7 +721,7 @@ void main(){
       var A = new Float32Array(7), V = new Float32Array(7);
       for (var i = 0; i < 7; i++) { A[i] = S.drums[i].a; V[i] = S.drums[i].v; }
       gl.uniform1fv(U['uAng[0]'], A); gl.uniform1fv(U['uVel[0]'], V);
-      gl.uniform1f(U.uTrap, S.trap); gl.uniform1f(U.uKeep, 0); gl.uniform1f(U.uDebug, dbg ? 1 : 0);
+      gl.uniform1f(U.uTrap, S.trap); gl.uniform1f(U.uKeep, 0); gl.uniform1f(U.uDebug, dbg ? 1 : 0); gl.uniform1f(U.uHatch, S.hatch ? 1 : 0);
       var pk = S.packBeads(); gl.uniform4fv(U['uBead[0]'], pk[0]); gl.uniform1fv(U['uBA[0]'], pk[1]);
     }
     function frame(now) {
@@ -892,7 +886,7 @@ void main(){
     });
     // is the point under (x, y) the hatch in the plinth front?
     S.pick = function (x, y) {
-      var c = S.lastCam; if (!c) return false;
+      var c = S.lastCam; if (!c || !S.hatch) return false;
       var asp = S.cssW / S.cssH, dist = c.span / (2 * 0.2493 * asp);
       var ro = [c.t[0] + dist * Math.sin(c.yaw) * Math.cos(c.pit), c.t[1] + dist * Math.sin(c.pit), c.t[2] + dist * Math.cos(c.yaw) * Math.cos(c.pit)];
       var fw = norm(sub(c.t, ro)), rt = norm(cross(fw, [0, 1, 0])), up = cross(rt, fw);
