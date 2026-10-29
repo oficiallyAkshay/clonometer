@@ -611,7 +611,7 @@ def test_branch_exists_refuses_a_non_404_status_naming_contents_read(fake_http) 
 
 
 def test_cli_read_only_prints_the_window_and_lifetime_and_writes_nothing(
-    fake_http, token_env, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    fake_http, token_env, frozen_today, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     fake_http.queue(
         traffic_payload("clones", [("2026-09-17", 100, 40)], count=100),
