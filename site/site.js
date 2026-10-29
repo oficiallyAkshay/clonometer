@@ -1,7 +1,7 @@
 /* clonometer page: the stream feeds the machine, the bar shows the numbers, the hatch opens the ledger. */
 (function () {
   'use strict';
-  var LICENSE_NAME = 'MIT';                 // matches LICENSE at the repository root
+  var LICENSE_NAME = 'MIT';                 // placeholder until the licence is final
   var REPO_SLUG = 'oficiallyAkshay/clonometer';
 
   var $ = function (s) { return document.querySelector(s); };
@@ -18,17 +18,33 @@
   /* ---------- the sample stream ---------- */
   var seed = 11;
   function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
-  var S = { life: 1284306, win: [702, 655, 790, 834, 711, 688, 421, 398, 812, 905, 770, 744, 689, 1263] };
+  var S = { life: 0, win: [] }, rate = 22;
   var sum = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); };
   var regime = 'normal', left = 6;
-  function dayCount() {
+  function dayCount() {          // stream averages the real daily rate: quiet stretches, normal days, occasional bursts
     if (--left <= 0) {
       var u = rnd();
       if (u < 0.3) { regime = 'quiet'; left = 4 + Math.floor(rnd() * 5); }
       else if (u < 0.5) { regime = 'burst'; left = 2 + Math.floor(rnd() * 3); }
       else { regime = 'normal'; left = 5 + Math.floor(rnd() * 6); }
     }
-    return Math.round(regime === 'quiet' ? 15 + rnd() * 80 : regime === 'burst' ? 2200 + rnd() * 3200 : 420 + rnd() * 480);
+    var f = regime === 'quiet' ? 0.05 + rnd() * 0.25 : regime === 'burst' ? 2.4 + rnd() * 2.2 : 0.55 + rnd() * 0.6;
+    return Math.max(1, Math.round(rate * f));
+  }
+  // 14 daily values with realistic variation that sum exactly to the real 14-day figure
+  function windowFrom(total) {
+    var w = [], s = 0, i; for (i = 0; i < 14; i++) { var v = 0.4 + rnd() * 1.2; if (i === 6 || i === 7) v *= 0.45; w.push(v); s += v; }
+    var out = w.map(function (v) { return Math.max(1, Math.round(v / s * total)); });
+    var diff = total - sum(out), k = 0; while (diff !== 0) { var idx = k++ % 14; if (diff > 0) { out[idx]++; diff--; } else if (out[idx] > 1) { out[idx]--; diff++; } }
+    return out;
+  }
+  var FALLBACK = { lifetime: 1200, last14d: 168 };      // small sample, only when metrics.json has no clone numbers
+  function seedFrom(m) {
+    var c = m && m.clones, ok = c && typeof c.lifetime === 'number' && typeof c.last14d === 'number';
+    var life = ok ? c.lifetime : FALLBACK.lifetime, w14 = ok ? c.last14d : FALLBACK.last14d;
+    S.life = life; S.win = windowFrom(w14); rate = Math.max(1, w14 / 14);
+    vLife.textContent = fmt(S.life); vWin.textContent = fmt(sum(S.win));
+    return ok ? m : Object.assign({}, m || {}, { clones: { lifetime: life, last14d: w14 } });
   }
   function digitsOf(n) { var s = String(n); while (s.length < 7) s = '0' + s; return s.slice(-7).split('').map(Number); }
   function tickCounts(a, b) { var out = []; for (var i = 0; i < 7; i++) { var k = Math.pow(10, 6 - i); out.push(Math.floor(b / k) - Math.floor(a / k)); } return out; }
@@ -75,16 +91,14 @@
   }
 
   /* ---------- the bar: numbers from metrics.json ---------- */
-  (function () {
-    function put(m) {
-      var real = { stars: m.stars, forks: m.forks, watchers: m.watchers, issues: m.openIssues, clonesLife: m.clones && m.clones.lifetime, clones14: m.clones && m.clones.last14d, views: m.views && m.views.lifetime };
-      Object.keys(real).forEach(function (k) {
-        var el = document.querySelector('[data-k="' + k + '"]'), li = el.closest('li');
-        if (typeof real[k] === 'number' && real[k] > 0) { el.textContent = fmt(real[k]); li.hidden = false; } else li.hidden = true;   // no number or zero: hidden
-      });
-    }
-    fetch('metrics.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(put).catch(function () { });
-  })();
+  function putFooter(m) {
+    var real = { stars: m.stars, forks: m.forks, watchers: m.watchers, issues: m.openIssues, clonesLife: m.clones && m.clones.lifetime, clones14: m.clones && m.clones.last14d, views: m.views && m.views.lifetime };
+    Object.keys(real).forEach(function (k) {
+      var el = document.querySelector('[data-k="' + k + '"]'), li = el.closest('li');
+      if (typeof real[k] === 'number' && real[k] > 0) { el.textContent = fmt(real[k]); li.hidden = false; } else li.hidden = true;   // no number or zero: hidden
+    });
+  }
+  var metricsP = fetch('metrics.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return null; });
 
   /* ---------- the ledger behind the hatch ---------- */
   var ledger = $('#ledger'), lastFocus = null;
@@ -132,14 +146,16 @@
     document.fonts.load('400 40px "Archivo"'), document.fonts.load('600 40px "Archivo"')
   ]).catch(function () { }) : Promise.resolve();
 
-  fontsReady.then(function () {
+  Promise.all([fontsReady, metricsP]).then(function (r) {
+    var eff = seedFrom(r[1]); putFooter(eff);
     var ok = false;
     if (/[?&]nogl\b/.test(location.search)) { noGL(); return; }
-    try { scene = window.Scene.create(canvas, { reduce: reduce, win: S.win, onGate: onGate, onWindow: onWindow, onHatch: openLedger }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
+    try { scene = window.Scene.create(canvas, { reduce: reduce, win: S.win, full: rate * 6, onGate: onGate, onWindow: onWindow, onHatch: openLedger }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
     if (!ok) { noGL(); return; }
     scene.setDigits(digitsOf(S.life), !reduce);
     scene.seedTube(S.win, reduce ? [{ c: 640, x: -4.38, y: 0.8, z: -1.1 }, { c: 2900, x: -4.38, y: 2.4, z: -1.1 }, { c: 520, x: -4.2, y: 2.0, z: -0.2 }] : []);
     scene.start();
+    requestAnimationFrame(function () { requestAnimationFrame(function () { canvas.classList.add('on'); }); });
     if (!reduce) setInterval(function () { if (!document.hidden) scene.addBead(dayCount()); }, scene.dayLen * 1000);
     addEventListener('resize', function () { scene.resize(); });
     if (window.ResizeObserver) new ResizeObserver(function () { barH(); scene.resize(); }).observe($('#bar'));

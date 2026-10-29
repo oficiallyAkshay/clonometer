@@ -16,6 +16,8 @@ a{color:inherit}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 :focus-visible{outline:2px solid var(--ink);outline-offset:3px;box-shadow:0 0 0 5px var(--accent)}
 #gl{position:fixed;left:0;top:0;width:100%;height:calc(100% - var(--barH));z-index:0;display:block;touch-action:none;cursor:grab}
+#gl{opacity:0;transition:opacity .5s}
+#gl.on{opacity:1}
 #gl:active{cursor:grabbing}
 #gl:focus-visible{outline-offset:-4px;box-shadow:none}
 
