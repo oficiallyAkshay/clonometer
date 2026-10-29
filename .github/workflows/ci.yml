@@ -121,10 +121,23 @@ jobs:
         if: matrix.python-version == '3.14' && github.event_name == 'pull_request'
         run: uv run diff-cover coverage.xml --compare-branch=origin/main --fail-under=100
 
+  # The page's own node tests (site/test). Node ships on the runner image, so
+  # nothing is installed and no dependency is added.
+  site-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: node --test site/test/*.test.js
+
   # The one context the branch ruleset requires. It exists on every run, forks
   # included, and it is the only job name the ruleset needs to know.
   ci:
-    needs: [checks, test]
+    needs: [checks, test, site-tests]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15
