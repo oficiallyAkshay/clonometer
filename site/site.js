@@ -92,23 +92,31 @@
 
   /* ---------- the bar: numbers from metrics.json ---------- */
   function putFooter(m) {
-    var real = { stars: m.stars, forks: m.forks, watchers: m.watchers, issues: m.openIssues, clonesLife: m.clones && m.clones.lifetime, clones14: m.clones && m.clones.last14d, views: m.views && m.views.lifetime };
-    Object.keys(real).forEach(function (k) {
-      var el = document.querySelector('[data-k="' + k + '"]'), li = el.closest('li');
-      if (typeof real[k] === 'number' && real[k] > 0) { el.textContent = fmt(real[k]); li.hidden = false; } else li.hidden = true;   // no number or zero: hidden
-    });
+    function put(k, v) { var el = document.querySelector('[data-k="' + k + '"]'); if (typeof v === 'number' && v > 0) { el.textContent = fmt(v); return true; } return false; }
+    ['stars', 'forks', 'watchers'].forEach(function (k) { $('[data-k="' + k + '"]').closest('li').hidden = !put(k, m[k]); });
+    $('[data-k="issues"]').closest('li').hidden = !put('issues', m.openIssues);
+    var c = m.clones || {}, has = put('clonesLife', c.lifetime);
+    $('#w14').hidden = !put('clones14', c.last14d);
+    $('#liClones').hidden = !has;
+    $('#liTotal').hidden = !put('totalCounted', m.totalCounted && m.totalCounted.clones);
   }
   var metricsP = fetch('metrics.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return null; });
 
   /* ---------- the ledger behind the hatch ---------- */
   var ledger = $('#ledger'), lastFocus = null;
+  var OWNER = 'oficiallyakshay';
+  function others(d) {            // consumers outside the owner's own repositories, most clones first
+    return ((d && d.repositories) || []).filter(function (r) { return r && typeof r.repo === 'string' && typeof r.clones === 'number' && r.repo.toLowerCase().split('/')[0] !== OWNER; })
+      .sort(function (a, b) { return b.clones - a.clones; });
+  }
+  var leaderP = fetch('leaderboard.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(others).catch(function () { return []; });
+  var ledgerRows = [];
   function openLedger() {
-    fetch('leaderboard.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
-      var rows = (d.repositories || []).slice().sort(function (a, b) { return b.clones - a.clones; });
-      $('#ledgerList').innerHTML = rows.map(function (r, i) { return '<li><span>' + String(i + 1).padStart(2, '0') + '</span><em></em><b>' + fmt(r.clones) + '</b></li>'; }).join('');
-      $$('#ledgerList li em').forEach(function (e, i) { e.textContent = rows[i].repo; });
-      lastFocus = document.activeElement; ledger.hidden = false; $('#ledgerX').focus();
-    }).catch(function () { });
+    var rows = ledgerRows; if (!rows.length) return;
+    var mx = rows[0].clones || 1;
+    $('#ledgerList').innerHTML = rows.map(function (r, i) { return '<li><span>' + String(i + 1).padStart(2, '0') + '</span><em></em><i class="meter"><u style="width:' + Math.max(2, Math.round(r.clones / mx * 100)) + '%"></u></i><b>' + fmt(r.clones) + '</b></li>'; }).join('');
+    $$('#ledgerList li em').forEach(function (e, i) { e.textContent = rows[i].repo; });
+    lastFocus = document.activeElement; ledger.hidden = false; $('#ledgerX').focus();
   }
   function closeLedger() { ledger.hidden = true; if (lastFocus) lastFocus.focus(); }
   $('#ledgerX').addEventListener('click', closeLedger);
@@ -146,11 +154,12 @@
     document.fonts.load('400 40px "Archivo"'), document.fonts.load('600 40px "Archivo"')
   ]).catch(function () { }) : Promise.resolve();
 
-  Promise.all([fontsReady, metricsP]).then(function (r) {
+  Promise.all([fontsReady, metricsP, leaderP]).then(function (r) {
+    ledgerRows = r[2];
     var eff = seedFrom(r[1]); putFooter(eff);
     var ok = false;
     if (/[?&]nogl\b/.test(location.search)) { noGL(); return; }
-    try { scene = window.Scene.create(canvas, { reduce: reduce, win: S.win, full: rate * 6, onGate: onGate, onWindow: onWindow, onHatch: openLedger }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
+    try { scene = window.Scene.create(canvas, { reduce: reduce, win: S.win, full: rate * 6, onGate: onGate, onWindow: onWindow, onHatch: openLedger, hatch: ledgerRows.length > 0 }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
     if (!ok) { noGL(); return; }
     scene.setDigits(digitsOf(S.life), !reduce);
     scene.seedTube(S.win, reduce ? [{ c: 640, x: -4.38, y: 0.8, z: -1.1 }, { c: 2900, x: -4.38, y: 2.4, z: -1.1 }, { c: 520, x: -4.2, y: 2.0, z: -0.2 }] : []);
