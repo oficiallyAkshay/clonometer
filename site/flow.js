@@ -7,11 +7,12 @@
   'use strict';
   var DAY = 0.9, RX = -4.38, PZ = -0.5, PY = 2.55, BASE_Y = -1.8, SLOT0 = -3.55, PITCH = 0.52, N = 14, LEAK_X = 3.72, FUN_Y = 2.07;
   var slotX = function (k) { return SLOT0 + PITCH * k; };
-  var rOf = function (c) { return 0.065 + 0.075 * Math.sqrt(Math.min(1, c / 2600)); };
-  var restY = function (r) { return PY - 0.15 + r; };
+    var restY = function (r) { return PY - 0.15 + r; };
 
   function create(opts) {
     opts = opts || {};
+    var full = opts.full || 2600;                    // the count that makes a full-size bead
+    var rOf = function (c) { return 0.065 + 0.075 * Math.sqrt(Math.min(1, c / full)); };
     var beads = [], chain = [], total = 0, stepEvents = 0, lastWin = -1, problems = [], pendingOut = null;
     var F = { DAY: DAY, problems: problems, gateOn: true, trap: 0, landed: 0 };
     function sumChain() { return chain.reduce(function (a, b) { return a + b.c; }, 0); }

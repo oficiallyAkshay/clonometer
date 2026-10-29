@@ -831,6 +831,7 @@ void main(){
     };
 
     var flow = window.Flow.create({
+      full: opts.full,
       onGate: function (cnt, on) { if (opts.onGate) opts.onGate(cnt, on); },
       onWindow: function (total, cs, ev) { drawGauge(cs); upload(3, tGau, gauge.c); if (opts.onWindow) opts.onWindow(total, cs, ev); S.invalidate(); }
     });

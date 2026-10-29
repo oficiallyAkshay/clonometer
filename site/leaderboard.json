@@ -1,4 +1,5 @@
 {
+  "updated": "2026-10-29",
   "repositories": [
     {
       "repo": "oficiallyAkshay/ensemble",
@@ -32,7 +33,5 @@
       "repo": "oficiallyAkshay/figurehead",
       "clones": 853
     }
-  ],
-  "source": "clones.json on each repository's badges branch (the clonometer numbers file), fetched 2026-10-29",
-  "updated": "2026-10-29"
+  ]
 }
