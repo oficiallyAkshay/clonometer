@@ -4,6 +4,8 @@
   'use strict';
 
   var VS = '#version 300 es\nvoid main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(p*2.-1.,0.,1.);}';
+  var P = window.Geometry.PIPE, PL = window.Geometry.PLAQUE, FACE = window.Geometry.FACE;
+  var fl = function (n) { return String(n).indexOf('.') < 0 ? n + '.' : String(n); };   // a number as a GLSL float
 
   var FS = `#version 300 es
 precision highp float;
@@ -19,6 +21,12 @@ uniform sampler2D tDig, tFace, tCov, tGau, tPlq;
 const float WX=0.75, WHX=2.65, WHY=0.5, R=0.95, ZC=-1.05, GX=-3.02, GHX=0.62;
 const float PI=3.14159265, TH=0.2493;
 const vec3 AIM=vec3(0.,-0.6,-1.);
+// the intake pipe: one tube radius for riser, bend and run; the bend is a quarter torus about BC
+const float TR=${fl(P.tubeR)};
+const float BR=${fl(P.bendR)}, RX=${fl(P.riserX)}, PY=${fl(P.runY)}, PZ=${fl(P.z)};
+const vec3 BC=vec3(${fl(P.bendCX)},${fl(P.bendCY)},PZ);
+// the plaque: centre and half sizes of the card on the podium front
+const vec3 PLC=vec3(${fl(PL.cx)},${fl(PL.cy)},${fl(FACE.z + 0.008)}), PLH=vec3(${fl(PL.w / 2)},${fl(PL.h / 2)},0.012);
 vec3 Lp;
 
 float hash(vec2 p){ p=fract(p*vec2(.1031,.1030)); p+=dot(p,p.yx+33.33); return fract((p.x+p.y)*p.x); }
@@ -54,10 +62,9 @@ vec2 map(vec3 p){
   res=mn(res,vec2(min(rW,rG),2.));
   res=mn(res,vec2(dr,3.));
   // one pipe: riser from the plinth, over the top, a run of 14 slots, a taped leak, a funnel into the counter
-  vec3 rq=p-vec3(-4.38,0.,-0.5);
+  vec3 rq=p-vec3(RX,0.,PZ);
   float pipeF=max(length(rq.xz)-0.165,abs(p.y+1.74)-0.19);
-  pipeF=min(pipeF,max(abs(length(rq.xz)-0.18)-0.025,abs(p.y-2.55)-0.2));
-  vec3 hq=p-vec3(0.,2.55,-0.5);
+  vec3 hq=p-vec3(0.,PY,PZ);
   float jr=clamp(floor((p.x+3.81)/0.52+0.5),0.,14.); float rxx=-3.81+0.52*jr;
   float rings=length(vec2(length(hq.yz)-0.17,p.x-rxx))-0.013;
   float rt=mix(0.17,0.33,smoothstep(3.5,3.75,p.x));
@@ -87,7 +94,7 @@ vec2 map(vec3 p){
   float hw=min(min(min(pipeF,brk),min(posts,min(rings,min(trough,funnel)))),min(gasket,min(handle,min(hinge,gland))));
   res=mn(res,vec2(hw,2.));
   res=mn(res,vec2(tape,13.));
-  res=mn(res,vec2(sdRB(p-vec3(0.,-2.57,0.908),vec3(2.8,0.36,0.012),0.004),10.));
+  res=mn(res,vec2(sdRB(p-PLC,PLH,0.004),10.));
   // beads, only evaluated near the flow
   float bd=min(sdBox(p-vec3(-4.38,0.4,-0.5),vec3(0.35,2.35,0.35)),sdBox(p-vec3(-0.3,2.3,-0.5),vec3(4.5,0.45,0.4)));
   if(bd>0.15){ res=mn(res,vec2(bd,9.)); }
@@ -314,11 +321,11 @@ void main(){
     beadA=ba; isBead=true;
   } else if(id>9.5&&id<10.5){ // printed paper label
     metal=0.; F0=vec3(0.04); rough=0.8;
-    vec2 pu=vec2((p.x+2.8)/5.6,(-2.21-p.y)/0.72); float lodP=max(0.,log2(fp*400.));
-    alb=vec3(0.95,0.94,0.9);                                    // clean flat card stock
+    vec2 pu=vec2((p.x-PLC.x)/(2.*PLH.x)+0.5,(PLC.y-p.y)/(2.*PLH.y)+0.5); float lodP=max(0.,log2(fp*1000.));
+    alb=vec3(0.93,0.90,0.82);                                   // quiet warm card stock, flat
     if(n.z>0.5){
       vec4 f=textureLod(tPlq,pu,lodP);
-      alb=mix(alb,vec3(0.02,0.02,0.025),f.r);                  // crisp black print, no relief, no noise
+      alb=mix(alb,vec3(0.11,0.10,0.09),f.r);                   // soft black print, no relief, no noise
     }
   } else { // drums
     vec2 dv=vec2(p.z-ZC,p.y);
@@ -410,15 +417,27 @@ void main(){
 
   // glass riser and the glass run of 14 slots, analytic
   {
-    vec2 o=ro.xz-vec2(-4.38,-0.5); vec2 d=rd.xz; float a=dot(d,d), bq=dot(o,d), cq=dot(o,o)-0.15*0.15; float h=bq*bq-a*cq;
+    vec2 o=ro.xz-vec2(RX,PZ); vec2 d=rd.xz; float a=dot(d,d), bq=dot(o,d), cq=dot(o,o)-TR*TR; float h=bq*bq-a*cq;
     if(h>0.&&a>1e-6){ float tg=(-bq-sqrt(h))/a; vec3 pg=ro+rd*tg;
-      if(tg>0.&&tg<t&&pg.y>-1.55&&pg.y<2.4){ vec3 ng=normalize(vec3(pg.x+4.38,0.,pg.z+0.5)); float F=0.04+0.96*pow(1.-abs(dot(rd,ng)),4.);
+      if(tg>0.&&tg<t&&pg.y>-1.55&&pg.y<BC.y){ vec3 ng=normalize(vec3(pg.x-RX,0.,pg.z-PZ)); float F=0.04+0.96*pow(1.-abs(dot(rd,ng)),4.);
         col=col*0.84+envMap(reflect(rd,ng),0.03,cone*0.9+0.1)*F*2.4+vec3(0.55,0.62,0.6)*smoothstep(0.35,0.0,abs(dot(rd,ng)))*0.35; } }
-    vec2 o2=ro.yz-vec2(2.55,-0.5); vec2 d2=rd.yz; float a2=dot(d2,d2), b2=dot(o2,d2), c2=dot(o2,o2)-0.16*0.16; float h2=b2*b2-a2*c2;
+    vec2 o2=ro.yz-vec2(PY,PZ); vec2 d2=rd.yz; float a2=dot(d2,d2), b2=dot(o2,d2), c2=dot(o2,o2)-TR*TR; float h2=b2*b2-a2*c2;
     if(h2>0.&&a2>1e-6){ float tg=(-b2-sqrt(h2))/a2; vec3 pg=ro+rd*tg;
-      if(tg>0.&&tg<t&&pg.x>-4.2&&pg.x<3.47){ vec3 ng=normalize(vec3(0.,pg.y-2.55,pg.z+0.5)); float F=0.04+0.96*pow(1.-abs(dot(rd,ng)),4.);
+      if(tg>0.&&tg<t&&pg.x>BC.x&&pg.x<3.47){ vec3 ng=normalize(vec3(0.,pg.y-PY,pg.z-PZ)); float F=0.04+0.96*pow(1.-abs(dot(rd,ng)),4.);
         col+=vec3(1.0,0.92,0.6)*smoothstep(0.085,0.0,abs(pg.x-3.4-0.04*sin(pg.y*38.+pg.z*26.)))*3.2;   // the crack
         col=col*0.84+envMap(reflect(rd,ng),0.03,cone*0.9+0.1)*F*2.4+vec3(0.55,0.62,0.6)*smoothstep(0.35,0.0,abs(dot(rd,ng)))*0.35; } }
+    // the bend: the quarter torus between them, found by marching its distance field from where the ray enters its box
+    vec3 bh=vec3((BR+TR)*0.5,(BR+TR)*0.5,TR), bm=BC+vec3(-bh.x,bh.y,0.);
+    vec3 ib=1./rd, ba=(bm-bh-ro)*ib, bb2=(bm+bh-ro)*ib; vec3 bmi=min(ba,bb2), bma=max(ba,bb2);
+    float btn=max(max(bmi.x,bmi.y),bmi.z), btf=min(min(bma.x,bma.y),bma.z);
+    if(btn<btf&&btf>0.){ float te=max(btn,0.);
+      for(int i=0;i<48;i++){
+        vec3 q=ro+rd*te-BC; float dq=max(length(vec2(length(q.xy)-BR,q.z))-TR,max(q.x,-q.y));
+        if(dq<0.0008){
+          if(i>0&&te<t){ vec3 ng=normalize(vec3(normalize(q.xy)*(length(q.xy)-BR),q.z)); float F=0.04+0.96*pow(1.-abs(dot(rd,ng)),4.);
+            col=col*0.84+envMap(reflect(rd,ng),0.03,cone*0.9+0.1)*F*2.4+vec3(0.55,0.62,0.6)*smoothstep(0.35,0.0,abs(dot(rd,ng)))*0.35; }
+          break; }
+        te+=dq; if(te>btf||te>t) break; } }
   }
   // glass over the drum window and the gauge
   if(rd.z<0.){
@@ -556,28 +575,22 @@ void main(){
   }
 
   function drawPlaque() {
-    var K = 2, W = 2240, H = 288, c = cv(W * K, H * K), x = c.getContext('2d');
+    // a museum label: one ink, a hairline border and rule, generous margins; the card is 1000 px to the unit
+    var K = 2, W = Math.round(PL.w * 1000), H = Math.round(PL.h * 1000), T = PL.type, M = 100;
+    var c = cv(W * K, H * K), x = c.getContext('2d');
     x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
     x.scale(K, K);
     x.globalCompositeOperation = 'lighter';
-    x.fillStyle = '#f00'; x.strokeStyle = '#f00'; x.lineWidth = 5;
-    x.strokeRect(14, 14, W - 28, H - 28);
-    var M = 58, avail = W - 2 * M;
-    function fit(str, weight, size, sp, maxW) {            // largest size whose width fits maxW
-      for (var s = size; s > 20; s -= 2) { x.font = weight + ' ' + s + 'px ' + SANS; x.letterSpacing = sp + 'px'; if (x.measureText(str).width <= maxW) return s; }
-      return 20;
-    }
-    var t1 = 'clonometer', t2 = 'In continuous service since day 1';
-    var s1 = 140; x.font = '800 ' + s1 + 'px ' + SANS; x.letterSpacing = '-2px'; var w1 = x.measureText(t1).width;
-    var s2 = fit(t2, 500, 92, 0, avail - w1 - 90);
+    x.fillStyle = '#f00'; x.strokeStyle = '#f00'; x.lineWidth = 2;
+    x.strokeRect(30, 30, W - 60, H - 60);
     x.textAlign = 'left'; x.textBaseline = 'alphabetic';
-    x.font = '800 ' + s1 + 'px ' + SANS; x.letterSpacing = '-2px'; x.fillText(t1, M, 140);
-    x.font = '500 ' + s2 + 'px ' + SANS; x.letterSpacing = '0px'; x.textAlign = 'right'; x.fillText(t2, W - M, 140);
-    x.fillRect(M, 168, avail, 4);
-    var t3 = 'TITANIUM, BRASS, GLASS, CERAMIC, 2026', t4 = 'ACC. NO. 0001';
-    var s3 = fit(t3, 700, 64, 4, avail - 560);
-    x.font = '700 ' + s3 + 'px ' + SANS; x.letterSpacing = '4px'; x.textAlign = 'left'; x.fillText(t3, M, 244);
-    x.textAlign = 'right'; x.fillText(t4, W - M, 244);
+    x.font = '600 ' + T.name + 'px ' + SANS; x.letterSpacing = '0px'; x.fillText('clonometer', M, 205);
+    x.fillRect(M, 252, W - 2 * M, 2);
+    x.font = '400 ' + T.line + 'px ' + SANS;
+    x.fillText('In continuous service since day 1', M, 332);
+    x.fillText('Titanium, brass, glass, ceramic, 2026', M, 400);
+    x.font = '500 ' + T.small + 'px ' + SANS; x.letterSpacing = '5px'; x.fillStyle = '#d00';
+    x.fillText('ACC. NO. 0001', M, 520);
     return c;
   }
   var gauge = { c: cv(512, 410) };
@@ -906,5 +919,5 @@ void main(){
     return S;
   }
 
-  window.Scene = { create: create };
+  window.Scene = { create: create, source: FS };
 })();

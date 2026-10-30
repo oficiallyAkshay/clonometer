@@ -5,7 +5,8 @@
    The lifetime counter takes a bead the moment it arrives at the intake, so it never lags. The window total (the GitHub counter) changes exactly once when a bead enters and exactly once when one leaves. */
 (function (root) {
   'use strict';
-  var DAY = 0.9, RX = -4.38, PZ = -0.5, PY = 2.55, BASE_Y = -1.8, SLOT0 = -3.55, PITCH = 0.52, N = 14, LEAK_X = 3.72, FUN_Y = 2.07;
+  var PIPE = (root.Geometry || require('./geometry.js')).PIPE;
+  var DAY = 0.9, RX = PIPE.riserX, PZ = PIPE.z, PY = PIPE.runY, BASE_Y = -1.8, SLOT0 = -3.55, PITCH = 0.52, N = 14, LEAK_X = 3.72, FUN_Y = 2.07;
   var slotX = function (k) { return SLOT0 + PITCH * k; };
     var restY = function (r) { return PY - 0.15 + r; };
 
@@ -45,9 +46,13 @@
         if (b.still) continue;
         if (b.ph === -1) {                                   // lifted up the riser that stands on the plinth
           b.v = Math.min(3.4, b.v + 3 * dt); b.y += b.v * dt; moving = true;
-          if (b.y >= restY(b.r)) { b.y = restY(b.r); b.ph = -2; b.v = 1.2; b.z = PZ; }
-        } else if (b.ph === -2) {                            // over the top and into the first slot
-          b.v = Math.min(3.2, b.v + 4 * dt); b.x += b.v * dt; moving = true;
+          if (b.y >= PIPE.bendCY) { b.ph = -2; b.v = 1.2; b.z = PZ; b.th = Math.PI; }
+        } else if (b.ph === -2) {                            // round the bend, over the top and into the first slot
+          b.v = Math.min(3.2, b.v + 4 * dt); moving = true;
+          if (b.th > Math.PI / 2) {                      // on the arc: drifts from the axis down to the floor of the run
+            b.th = Math.max(Math.PI / 2, b.th - b.v * dt / PIPE.bendR);
+            var u = (Math.PI - b.th) / (Math.PI / 2), rad = PIPE.bendR - (PIPE.tubeR - b.r - 0.01) * u * u * (3 - 2 * u);
+            b.x = PIPE.bendCX + rad * Math.cos(b.th); b.y = PIPE.bendCY + rad * Math.sin(b.th);          } else b.x += b.v * dt;
           if (b.x >= slotX(0)) {
             if (stepEvents > 0 || t - lastWin < 0.1 || pendingOut) { b.x = slotX(0); b.v = 0; continue; }   // one window update per step
             b.x = slotX(0); b.ph = 3; b.slot = 0; b.a = 0;
