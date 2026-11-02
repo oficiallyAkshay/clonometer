@@ -8,14 +8,14 @@
     "last30d": null
   },
   "clones": {
-    "lifetime": 2552,
-    "last14d": 313
+    "lifetime": 2853,
+    "last14d": 527
   },
   "totalCounted": {
-    "clones": 18003,
+    "clones": 18304,
     "repos": 8,
     "updated": "2026-11-02",
-    "source": "Sum of lifetime clones (total) from the badges branch clones.json of the 8 public repositories that run clonometer, fetched 2026-11-02. clonometer itself and the repositories whose token still fails keep their last published figure."
+    "source": "Sum of lifetime clones (total) from the badges branch clones.json of the 8 public repositories that run clonometer, fetched 2026-11-02 after the token fix."
   },
   "updated": "2026-11-02",
   "source": "GitHub API repos/oficiallyAkshay/clonometer (stars, forks, watchers, open issues) and the badges branch clones.json (clones), fetched 2026-11-02. Downloads: no release assets exist, so none shown."
