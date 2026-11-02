@@ -55,6 +55,10 @@ vec2 map(vec3 p){
   float cav=sdBox(q-vec3(WX,0.,-1.15),vec3(2.72,1.08,0.95));
   float cutG=sdRB(q-vec3(GX,0.,-0.05),vec3(GHX,WHY,0.35),0.03);
   body=max(body,-cutW); body=max(body,-cav); body=max(body,-cutG);
+  // an indented rim all the way round the box (front, top, back, bottom), pressed into the metal like a thumb run along a bead of caulk: two cells pinching apart
+  vec2 bq=abs(q.yz-vec2(0.,-1.0825))-vec2(1.95,1.1175)+0.1; float dyz=length(max(bq,0.))+min(max(bq.x,bq.y),0.)-0.1;
+  float seam=length(vec2(q.x+2.15,dyz))-(0.13+0.012*(vn(vec2(q.y*3.+q.z*2.,2.))-0.5));
+  body=max(body,-seam);
   float rW=max(sdRB(q-vec3(WX,0.,0.02),vec3(WHX+0.14,WHY+0.14,0.11),0.035),-cutW);
   float rG=max(sdRB(q-vec3(GX,0.,0.02),vec3(GHX+0.14,WHY+0.14,0.11),0.035),-cutG);
   float dr=max(length(vec2(q.y,q.z-ZC))-R,abs(q.x-WX)-2.55);
@@ -528,7 +532,7 @@ void main(){
     text('GITHUB \u00b7 14 DAYS', -3.02, 0.73, 0.1, 'center', 700, 3);
     text('CLONOMETER \u00b7 FOREVER', 0.75, 0.73, 0.1, 'center', 700, 4);
     // panel seams and engraved edge lines
-    line(-3.85, 0.82, 3.85, 0.82, 2); line(-3.85, -0.82, 3.85, -0.82, 2); line(-2.15, -1.75, -2.15, 1.75, 2.5);
+    line(-3.85, 0.82, 3.85, 0.82, 2); line(-3.85, -0.82, 3.85, -0.82, 2);
     line(-3.85, 1.7, 3.85, 1.7, 1.5); line(-3.85, -1.7, 3.85, -1.7, 1.5);
     // small vents
     for (var vr = 0; vr < 3; vr++) for (var vi = 0; vi < 9; vi++) { x.fillStyle = '#f00'; x.fillRect(FX(1.9 + vi * 0.15), FY(1.46 - vr * 0.1), 0.09 * S, 0.035 * S); }
@@ -543,7 +547,7 @@ void main(){
     text('SERIAL No. 0001', 2.7, -1.32, 0.075, 'center', 700, 3);
     text('CLONOMETER', 2.7, -1.5, 0.06, 'center', 600, 4);
     // upper strip, shown when the cover is down
-    text('CLONOMETER', -3.2, 1.3, 0.2, 'left', 800, 14);
+    text('CLONOMETER', -3.75, 1.3, 0.15, 'left', 800, 10);   // wholly left of the seam
     text('No. 0001', 1.7, 1.3, 0.2, 'right', 700, 6);
     line(-3.3, 1.06, 1.82, 1.06, 2.5);
     // corner screws
