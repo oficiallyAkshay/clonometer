@@ -722,7 +722,7 @@ void main(){
       S.dirty = true;
     }
 
-    var clock = 0, lastT = 0, slow = 0, fast = 0, frameSkip = 0;
+    var clock = 0, lastT = 0, frameSkip = 0;
     function physics(dt) {
       var moving = false;
       for (var i = 0; i < 7; i++) {
@@ -772,13 +772,6 @@ void main(){
       setUniforms(cc, now, false);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       S.frames = (S.frames || 0) + 1;
-      // adaptive resolution: never while the camera moves or the pointer is down, so a pose never changes scale mid-move
-      var el = dt * 1000, target = anim ? 16.7 : 33.3;
-      if (el > target * 1.6) { slow++; fast = 0; } else if (el < target * 1.15) { fast++; slow = 0; } else { slow = 0; fast = 0; }
-      if (!camMoving && !interacting && now - quietSince > 800) {
-        if (slow > 24 && S.scale > 0.5) { S.scale = Math.max(0.5, S.scale * 0.85); slow = 0; resize(); }
-        else if (fast > 360 && S.scale < 1) { S.scale = Math.min(1, S.scale * 1.12); fast = 0; resize(); }
-      }
       if (!S.reduce || anim) schedule();
     }
     // render fixed poses with a flat-colour debug pass and check that straight edges stay straight
