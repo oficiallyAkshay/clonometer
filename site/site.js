@@ -54,12 +54,12 @@
     m = m || {};
     function put(k, v, li) { var el = document.querySelector('[data-k="' + k + '"]'); var on = typeof v === 'number' && v > 0; if (on) el.textContent = fmt(v); (li || el.closest('li')).hidden = !on; }
     ['stars', 'forks', 'watchers'].forEach(function (k) { put(k, m[k]); });
-    var c = Page.clonesOf(m) || {}, tc = m.totalCounted || {}, label = Page.totalLabel(m), when = Page.updatedOf(m);
+    var c = Page.clonesOf(m) || {}, tc = m.totalCounted || {}, label = Page.totalLabel(m);
     put('clonesLife', c.life); put('clones14', c.last14d);
     put('totalCounted', label ? tc.clones : null);
     if (label) $('#liTotal .key').textContent = label;
     put('repos', tc.repos);
-    $('[data-k="updated"]').textContent = when || ''; $('#liUpdated').hidden = !when;
+    if (tc.repos > 0) $('[data-k="repos"]').textContent += ' repos';
   }
   var metricsP = fetch('metrics.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
 

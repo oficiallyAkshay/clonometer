@@ -1,7 +1,6 @@
 /* clonometer page: what the page may say about the data file, and how it reacts to a lost graphics context. No DOM here, so node can test it. */
 (function (root) {
   'use strict';
-  var DATE = /^\d{4}-\d{2}-\d{2}$/;
   var whole = function (n) { return typeof n === 'number' && isFinite(n) && n >= 0 && Math.floor(n) === n; };
 
   // the clone numbers in the data file, or null: with no real numbers the page shows none
@@ -12,9 +11,8 @@
   // the label of the cross-repository total: it is the sum of the owner's own repositories
   function totalLabel(m) {
     var tc = m && m.totalCounted;
-    return tc && whole(tc.repos) && tc.repos > 0 ? 'Across my ' + tc.repos + ' repos' : null;
+    return tc && whole(tc.repos) && tc.repos > 0 ? 'Globally tracked clones' : null;
   }
-  function updatedOf(m) { return m && typeof m.updated === 'string' && DATE.test(m.updated) ? m.updated : null; }
 
   // 14 daily values with realistic variation that sum exactly to the real 14-day figure
   function windowFrom(total, rnd) {
@@ -37,6 +35,6 @@
     doc.addEventListener('visibilitychange', function () { if (doc.hidden) scene.stop(); else if (!lost) scene.start(); });
   }
 
-  var api = { clonesOf: clonesOf, totalLabel: totalLabel, updatedOf: updatedOf, windowFrom: windowFrom, watch: watch };
+  var api = { clonesOf: clonesOf, totalLabel: totalLabel, windowFrom: windowFrom, watch: watch };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Page = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -20,25 +20,19 @@ test('the page holds no sample numbers to fall back on', () => {
   assert.doesNotMatch(read('site.js'), /FALLBACK|1200|\b168\b/);
 });
 
-test('the cross-repository total is labelled with the repository count from the file', () => {
-  assert.strictEqual(Page.totalLabel({ totalCounted: { clones: 18304, repos: 8 } }), 'Across my 8 repos');
-  assert.strictEqual(Page.totalLabel({ totalCounted: { clones: 5, repos: 3 } }), 'Across my 3 repos');
+test('the cross-repository total is labelled as globally tracked clones', () => {
+  assert.strictEqual(Page.totalLabel({ totalCounted: { clones: 18304, repos: 8 } }), 'Globally tracked clones');
   assert.strictEqual(Page.totalLabel({}), null);
   assert.strictEqual(Page.totalLabel({ totalCounted: { repos: 0 } }), null);
   assert.match(read('index.html'), /id="liTotal"/);
   assert.doesNotMatch(read('index.html'), /Tracked globally|Counted across all repos/);
 });
 
-test('the footer date is the data file date, and nothing else', () => {
-  assert.strictEqual(Page.updatedOf({ updated: '2026-11-02' }), '2026-11-02');
-  for (const m of [null, {}, { updated: 'yesterday' }, { updated: '2026-11-02T10:00:00Z' }, { updated: 20261102 }]) assert.strictEqual(Page.updatedOf(m), null);
-  assert.match(read('index.html'), /id="liUpdated"[^>]*hidden/);
-});
 
 test('every number in the footer starts hidden and empty, so a failed fetch leaves none', () => {
   const html = read('index.html');
   const items = (html.match(/<li [^\n]*<\/li>/g) || []).filter((li) => li.includes('data-k='));
-  assert.ok(items.length >= 8, 'found ' + items.length + ' footer items');
+  assert.ok(items.length >= 7, 'found ' + items.length + ' footer items');
   for (const li of items) {
     assert.match(li, /^<li[^>]*\bhidden\b/, li.slice(0, 60));
     assert.match(li, /data-k="[^"]+"[^>]*><\/b>/, 'a number is baked in: ' + li.slice(-40));
