@@ -4,7 +4,7 @@
   'use strict';
 
   var VS = '#version 300 es\nvoid main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(p*2.-1.,0.,1.);}';
-  var P = window.Geometry.PIPE, PL = window.Geometry.PLAQUE, FACE = window.Geometry.FACE;
+  var P = window.Geometry.PIPE;
   var fl = function (n) { return String(n).indexOf('.') < 0 ? n + '.' : String(n); };   // a number as a GLSL float
 
   var FS = `#version 300 es
@@ -12,11 +12,11 @@ precision highp float;
 out vec4 oc;
 uniform vec2 uRes; uniform float uTime;
 uniform vec3 uTgt; uniform float uSpan, uYaw, uPitch, uShiftY;
-uniform float uTrap, uKeep, uDebug, uHatch;
+uniform float uTrap, uKeep, uDebug;
 uniform float uSpot, uCover, uCollapse, uGlow, uStill;
 uniform float uAng[7], uVel[7], uDX[7], uSX[2];
 uniform vec4 uBead[36]; uniform float uBA[36];
-uniform sampler2D tDig, tFace, tCov, tGau, tPlq;
+uniform sampler2D tDig, tFace, tCov, tGau;
 
 const float WX=0.75, WHX=2.65, WHY=0.5, R=0.95, ZC=-1.05, GX=-3.02, GHX=0.62;
 const float PI=3.14159265, TH=0.2493;
@@ -25,8 +25,6 @@ const vec3 AIM=vec3(0.,-0.6,-1.);
 const float TR=${fl(P.tubeR)};
 const float BR=${fl(P.bendR)}, RX=${fl(P.riserX)}, PY=${fl(P.runY)}, PZ=${fl(P.z)};
 const vec3 BC=vec3(${fl(P.bendCX)},${fl(P.bendCY)},PZ);
-// the plaque: centre and half sizes of the card on the podium front
-const vec3 PLC=vec3(${fl(PL.cx)},${fl(PL.cy)},${fl(FACE.z + 0.008)}), PLH=vec3(${fl(PL.w / 2)},${fl(PL.h / 2)},0.012);
 vec3 Lp;
 
 float hash(vec2 p){ p=fract(p*vec2(.1031,.1030)); p+=dot(p,p.yx+33.33); return fract((p.x+p.y)*p.x); }
@@ -100,7 +98,6 @@ vec2 map(vec3 p){
   float hw=min(min(min(pipeF,brk),min(posts,min(rings,min(trough,funnel)))),min(gasket,min(handle,min(hinge,gland))));
   res=mn(res,vec2(hw,2.));
   res=mn(res,vec2(tape,13.));
-  res=mn(res,vec2(sdRB(p-PLC,PLH,0.004),10.));
   // beads, only evaluated near the flow
   float bd=min(sdBox(p-vec3(-4.38,0.4,-0.5),vec3(0.35,2.35,0.35)),sdBox(p-vec3(-0.3,2.3,-0.5),vec3(4.5,0.45,0.4)));
   if(bd>0.15){ res=mn(res,vec2(bd,9.)); }
@@ -232,7 +229,6 @@ void main(){
     float gr=fbm(q*3.)*0.5+fbm(q*26.)*0.3+fbm(q*90.)*0.12; float vein=smoothstep(0.03,0.0,abs(sin(q.x*2.2+q.y*1.4+fbm(q*1.6)*7.)))*0.5+smoothstep(0.02,0.0,abs(sin(q.x*-1.3+q.y*3.1+fbm(q*2.7)*9.)))*0.3; float fleck=step(0.985,hash(floor(q*140.)))*clamp(1.-fp*140.,0.,1.); float pore=step(0.97,hash(floor(q*260.+7.)))*clamp(1.-fp*260.,0.,1.);
     alb=vec3(0.40,0.385,0.36)*(0.80+0.4*gr)*(1.-0.22*vein)*(1.+0.04*(hash(floor(q*220.))-0.5)*clamp(1.-fp*220.,0.,1.))*(1.+0.5*fleck-0.4*pore);
     if(n.y>0.9&&p.y>-2.0&&p.x>3.9){ float m2=0.; m2+=smoothstep(0.07,0.045,length(p.xz-vec2(4.15,-0.1))); m2+=smoothstep(0.06,0.04,length(p.xz-vec2(4.3,0.2))); m2+=smoothstep(0.065,0.04,length(p.xz-vec2(4.4,-0.35))); m2+=smoothstep(0.05,0.03,length(p.xz-vec2(4.08,0.45))); m2+=smoothstep(0.055,0.035,length(p.xz-vec2(4.48,0.05))); alb=mix(alb,alb*0.55+vec3(0.06,0.06,0.04),clamp(m2,0.,1.)*0.6); }
-    if(uHatch>0.5&&n.z>0.8&&p.z>0.85){ vec2 hq=p.xy-vec2(2.2,-3.7); float seam=smoothstep(0.012,0.0,abs(max(abs(hq.x)-0.42,abs(hq.y)-0.3))); alb*=1.-0.55*seam; alb=mix(alb,vec3(0.22,0.19,0.12),smoothstep(0.04,0.03,length(hq-vec2(0.3,0.)))); }
     rough=0.42; spec_k=0.7;
   } else if(id>0.5&&id<1.5){ // titanium housing
     F0=vec3(0.50,0.52,0.55); metal=1.; rough=0.36;
@@ -325,14 +321,6 @@ void main(){
     float bi=0.,bdm=1e3,ba=0.;
     for(int i=0;i<36;i++){ float dd=length(p-uBead[i].xyz)-uBead[i].w; if(dd<bdm){ bdm=dd; ba=uBA[i]; } }
     beadA=ba; isBead=true;
-  } else if(id>9.5&&id<10.5){ // printed paper label
-    metal=0.; F0=vec3(0.04); rough=0.8;
-    vec2 pu=vec2((p.x-PLC.x)/(2.*PLH.x)+0.5,(PLC.y-p.y)/(2.*PLH.y)+0.5); float lodP=max(0.,log2(fp*1000.));
-    alb=vec3(0.93,0.90,0.82);                                   // quiet warm card stock, flat
-    if(n.z>0.5){
-      vec4 f=textureLod(tPlq,pu,lodP);
-      alb=mix(alb,vec3(0.11,0.10,0.09),f.r);                   // soft black print, no relief, no noise
-    }
   } else { // drums
     vec2 dv=vec2(p.z-ZC,p.y);
     float phi=atan(dv.y,dv.x);
@@ -517,7 +505,6 @@ void main(){
     x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
     x.globalCompositeOperation = 'lighter';
     function brass(x0, y0, x1, y1) { x.fillStyle = '#0f0'; x.fillRect(FX(x0), FY(y1), (x1 - x0) * S, (y1 - y0) * S); }
-    function frame(x0, y0, x1, y1) { x.strokeStyle = '#f00'; x.lineWidth = 3; x.strokeRect(FX(x0), FY(y1), (x1 - x0) * S, (y1 - y0) * S); }
     function text(s, px, py, size, align, w, sp) {
       x.fillStyle = '#f00'; x.textAlign = align || 'left';
       x.font = (w || 600) + ' ' + Math.round(size * S) + 'px ' + MONO;
@@ -528,28 +515,13 @@ void main(){
     // one small tally group of five, below the gauge section
     [0, 1, 2, 3].forEach(function (i) { line(-1.7 + i * 0.07, -1.0, -1.7 + i * 0.07, -1.24, 4); });
     line(-1.77, -1.2, -1.43, -1.04, 4);
-    // labels directly above the two displays
-    text('GITHUB \u00b7 14 DAYS', -3.02, 0.73, 0.1, 'center', 700, 3);
-    text('CLONOMETER \u00b7 FOREVER', 0.75, 0.73, 0.1, 'center', 700, 4);
     // panel seams and engraved edge lines
     line(-3.85, 0.82, 3.85, 0.82, 2); line(-3.85, -0.82, 3.85, -0.82, 2);
     line(-3.85, 1.7, 3.85, 1.7, 1.5); line(-3.85, -1.7, 3.85, -1.7, 1.5);
     // small vents
     for (var vr = 0; vr < 3; vr++) for (var vi = 0; vi < 9; vi++) { x.fillStyle = '#f00'; x.fillRect(FX(1.9 + vi * 0.15), FY(1.46 - vr * 0.1), 0.09 * S, 0.035 * S); }
-    // two small gauges
-    [[-1.4, 1.3], [-0.95, 1.3]].forEach(function (g) {
-      x.strokeStyle = '#f00'; x.lineWidth = 3; x.beginPath(); x.arc(FX(g[0]), FY(g[1]), 0.1 * S, 0, 7); x.stroke();
-      for (var tk = 0; tk < 7; tk++) { var an = Math.PI * (1.1 + tk * 0.13); line(g[0] + Math.cos(an) * 0.075, g[1] - Math.sin(an) * 0.075, g[0] + Math.cos(an) * 0.095, g[1] - Math.sin(an) * 0.095, 2); }
-      line(g[0], g[1], g[0] + 0.05, g[1] + 0.05, 3);
-    });
-    // stamped serial plate
-    brass(1.9, -1.58, 3.5, -1.12); frame(1.9, -1.58, 3.5, -1.12);
-    text('SERIAL No. 0001', 2.7, -1.32, 0.075, 'center', 700, 3);
-    text('CLONOMETER', 2.7, -1.5, 0.06, 'center', 600, 4);
-    // upper strip, shown when the cover is down
-    text('CLONOMETER', -3.75, 1.3, 0.15, 'left', 800, 10);   // wholly left of the seam
-    text('No. 0001', 1.7, 1.3, 0.2, 'right', 700, 6);
-    line(-3.3, 1.06, 1.82, 1.06, 2.5);
+    // the one wordmark, wholly left of the seam
+    text('clonometer', -3.75, 1.3, 0.15, 'left', 800, 2);
     // corner screws
     [[-3.62, 1.56], [3.62, 1.56], [-3.62, -1.56], [3.62, -1.56]].forEach(function (s, i) {
       x.fillStyle = '#0f0'; x.beginPath(); for (var hv = 0; hv < 6; hv++) { var ha = hv * Math.PI / 3 + 0.3; x.lineTo(FX(s[0]) + Math.cos(ha) * 0.095 * S, FY(s[1]) + Math.sin(ha) * 0.095 * S); } x.closePath(); x.fill();
@@ -583,25 +555,6 @@ void main(){
     return c;
   }
 
-  function drawPlaque() {
-    // a museum label: one ink, a hairline border and rule, generous margins; the card is 1000 px to the unit
-    var K = 2, W = Math.round(PL.w * 1000), H = Math.round(PL.h * 1000), T = PL.type, M = 100;
-    var c = cv(W * K, H * K), x = c.getContext('2d');
-    x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
-    x.scale(K, K);
-    x.globalCompositeOperation = 'lighter';
-    x.fillStyle = '#f00'; x.strokeStyle = '#f00'; x.lineWidth = 2;
-    x.strokeRect(30, 30, W - 60, H - 60);
-    x.textAlign = 'left'; x.textBaseline = 'alphabetic';
-    x.font = '600 ' + T.name + 'px ' + SANS; x.letterSpacing = '0px'; x.fillText('clonometer', M, 205);
-    x.fillRect(M, 252, W - 2 * M, 2);
-    x.font = '400 ' + T.line + 'px ' + SANS;
-    x.fillText('In continuous service since day 1', M, 332);
-    x.fillText('Titanium, brass, glass, ceramic, 2026', M, 400);
-    x.font = '500 ' + T.small + 'px ' + SANS; x.letterSpacing = '5px'; x.fillStyle = '#d00';
-    x.fillText('ACC. NO. 0001', M, 520);
-    return c;
-  }
   var gauge = { c: cv(512, 410) };
   function drawGauge(win) {
     var x = gauge.c.getContext('2d'), w = 512, h = 410;
@@ -631,7 +584,7 @@ void main(){
     var gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' });
     if (!gl) return null;
     function sh(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; }
-    var UNAMES = ['uRes', 'uTime', 'uTgt', 'uSpan', 'uYaw', 'uPitch', 'uShiftY', 'uSpot', 'uCover', 'uCollapse', 'uGlow', 'uStill', 'uAng[0]', 'uVel[0]', 'uDX[0]', 'uSX[0]', 'uTrap', 'uKeep', 'uDebug', 'uHatch', 'uBead[0]', 'uBA[0]', 'tDig', 'tFace', 'tCov', 'tGau', 'tPlq'];
+    var UNAMES = ['uRes', 'uTime', 'uTgt', 'uSpan', 'uYaw', 'uPitch', 'uShiftY', 'uSpot', 'uCover', 'uCollapse', 'uGlow', 'uStill', 'uAng[0]', 'uVel[0]', 'uDX[0]', 'uSX[0]', 'uTrap', 'uKeep', 'uDebug', 'uBead[0]', 'uBA[0]', 'tDig', 'tFace', 'tCov', 'tGau'];
     var U, aniso, tGau;
     function tex(unit, canvasEl, wrapT) {
       var t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -656,8 +609,8 @@ void main(){
       gl.useProgram(pr);
       U = {}; UNAMES.forEach(function (n) { U[n] = gl.getUniformLocation(pr, n); });
       aniso = gl.getExtension('EXT_texture_filter_anisotropic');
-      tex(0, drawDigits(), gl.REPEAT); tex(1, drawFace()); tex(2, drawCover()); tGau = tex(3, gauge.c); tex(4, drawPlaque());
-      gl.uniform1i(U.tPlq, 4); gl.uniform1i(U.tDig, 0); gl.uniform1i(U.tFace, 1); gl.uniform1i(U.tCov, 2); gl.uniform1i(U.tGau, 3);
+      tex(0, drawDigits(), gl.REPEAT); tex(1, drawFace()); tex(2, drawCover()); tGau = tex(3, gauge.c);
+      gl.uniform1i(U.tDig, 0); gl.uniform1i(U.tFace, 1); gl.uniform1i(U.tCov, 2); gl.uniform1i(U.tGau, 3);
       gl.uniform1fv(U['uDX[0]'], new Float32Array(DX));
       gl.uniform1fv(U['uSX[0]'], new Float32Array(SEP_X));
       return true;
@@ -668,7 +621,7 @@ void main(){
     var S = {
       reduce: !!opts.reduce, scroll: 0, scrollS: 0, collapse: false, cov: 0, cam: 0, glow: 0,
       drums: [], scale: 1, w: 1, h: 1, running: false, visible: true, onFrame: null, lastCam: null,
-      still: !!opts.reduce, hatch: !!opts.hatch
+      still: !!opts.reduce
     };
     for (var i = 0; i < 7; i++) S.drums.push({ a: 0, v: 0, tg: 0, k: 100, t0: 0 });
 
@@ -713,8 +666,9 @@ void main(){
     function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
     function norm(a) { var l = Math.sqrt(dot(a, a)); return [a[0] / l, a[1] / l, a[2] / l]; }
 
+    var dprCap = 1.5;      // 1.5 while anything moves, 2 once the scene is idle
     function resize() {
-      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      var dpr = Math.min(window.devicePixelRatio || 1, dprCap);
       S.cssW = canvas.clientWidth || window.innerWidth; S.cssH = canvas.clientHeight || window.innerHeight;
       S.w = Math.max(2, Math.round(S.cssW * dpr * S.scale)); S.h = Math.max(2, Math.round(S.cssH * dpr * S.scale));
       canvas.width = S.w; canvas.height = S.h; gl.viewport(0, 0, S.w, S.h);
@@ -748,7 +702,7 @@ void main(){
       var A = new Float32Array(7), V = new Float32Array(7);
       for (var i = 0; i < 7; i++) { A[i] = S.drums[i].a; V[i] = S.drums[i].v; }
       gl.uniform1fv(U['uAng[0]'], A); gl.uniform1fv(U['uVel[0]'], V);
-      gl.uniform1f(U.uTrap, S.trap); gl.uniform1f(U.uKeep, 0); gl.uniform1f(U.uDebug, dbg ? 1 : 0); gl.uniform1f(U.uHatch, S.hatch ? 1 : 0);
+      gl.uniform1f(U.uTrap, S.trap); gl.uniform1f(U.uKeep, 0); gl.uniform1f(U.uDebug, dbg ? 1 : 0);
       var pk = S.packBeads(); gl.uniform4fv(U['uBead[0]'], pk[0]); gl.uniform1fv(U['uBA[0]'], pk[1]);
     }
     function frame(now) {
@@ -764,6 +718,8 @@ void main(){
       var kf = S.reduce ? 1 : 1 - Math.exp(-dt * 9), camMoving = false;
       ['tx', 'ty', 'span', 'yaw', 'pit'].forEach(function (k) { var d = tg[k] - cur[k]; if (Math.abs(d) > 1e-4) { cur[k] += d * kf; camMoving = true; } else cur[k] = tg[k]; });
       if (camMoving || interacting) { anim = true; quietSince = now; }
+      var wantCap = (anim || interacting) ? 1.5 : 2;
+      if (wantCap !== dprCap && (window.devicePixelRatio || 1) > 1.5 && (wantCap < dprCap || now - quietSince > 800)) { dprCap = wantCap; resize(); }
       if (!anim && !S.dirty && !S.reduce) { frameSkip ^= 1; if (frameSkip) { schedule(); return; } }
       if (!anim && !S.dirty && S.reduce) return;
       S.dirty = false;
@@ -850,16 +806,16 @@ void main(){
     /* ---------- exploring: drag orbits, wheel zooms, shift or right drag pans, double click resets ---------- */
     var cur = null, tg = null, touched = false;
     var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
-    function baseCam() { return portrait() ? { tx: 0.1, ty: -0.25, span: 10.4, yaw: 0.08, pit: 0.15 } : { tx: 0.1, ty: -0.6, span: 17.8, yaw: 0.08, pit: 0.15 }; }
+    function baseCam() { return portrait() ? { tx: 0.1, ty: 0.8, span: 10, yaw: 0.08, pit: 0.15 } : { tx: 0.1, ty: -0.6, span: 17.8, yaw: 0.08, pit: 0.15 }; }
     function resetCam() { tg = baseCam(); touched = false; S.invalidate(); }
     function limit() { tg.yaw = clamp(tg.yaw, -1.17, 1.17); tg.pit = clamp(tg.pit, -0.08, 1.05); tg.span = clamp(tg.span, 5, 19); tg.tx = clamp(tg.tx, -2.5, 2.5); tg.ty = clamp(tg.ty, -1.2, 1.8); touched = true; S.invalidate(); }
     function pan(dx, dy) { var k = tg.span / S.cssW; tg.tx -= Math.cos(tg.yaw) * dx * k; tg.ty += dy * k; limit(); }
     function orbit(dx, dy) { tg.yaw -= dx * 0.006; tg.pit += dy * 0.006; limit(); }
-    var ptrs = {}, moved = 0, down = null;
-    canvas.addEventListener('pointerdown', function (e) { if (e.button === 1) e.preventDefault(); interacting++; try { canvas.setPointerCapture(e.pointerId); } catch (err) { } ptrs[e.pointerId] = { x: e.clientX, y: e.clientY }; moved = 0; down = { x: e.clientX, y: e.clientY, n: Object.keys(ptrs).length }; });
+    var ptrs = {};
+    canvas.addEventListener('pointerdown', function (e) { if (e.button === 1) e.preventDefault(); interacting++; try { canvas.setPointerCapture(e.pointerId); } catch (err) { } ptrs[e.pointerId] = { x: e.clientX, y: e.clientY }; });
     canvas.addEventListener('pointermove', function (e) {
       var p = ptrs[e.pointerId]; if (!p) return;
-      var ids = Object.keys(ptrs), dx = e.clientX - p.x, dy = e.clientY - p.y; moved += Math.abs(dx) + Math.abs(dy);
+      var ids = Object.keys(ptrs), dx = e.clientX - p.x, dy = e.clientY - p.y;
       if (ids.length === 1) { if (e.shiftKey || (e.buttons & 6) || (e.ctrlKey && e.pointerType === 'mouse')) pan(dx, dy); else orbit(dx, dy); }
       else if (ids.length === 2) {
         var o = ptrs[ids.filter(function (i) { return +i !== e.pointerId; })[0]];
@@ -869,10 +825,8 @@ void main(){
       p.x = e.clientX; p.y = e.clientY;
     });
     function up(e) {
-      var wasOne = down && down.n === 1 && Object.keys(ptrs).length === 1;
       if (ptrs[e.pointerId]) interacting = Math.max(0, interacting - 1);
       delete ptrs[e.pointerId];
-      if (e.type === 'pointerup' && wasOne && moved < 6 && !e.shiftKey && e.button === 0 && S.pick(e.clientX, e.clientY) && opts.onHatch) opts.onHatch();
     }
     canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
@@ -895,18 +849,6 @@ void main(){
       else if (k === '0' || k === 'Home') resetCam(); else used = false;
       if (used) e.preventDefault();
     });
-    // is the point under (x, y) the hatch in the plinth front?
-    S.pick = function (x, y) {
-      var c = S.lastCam; if (!c || !S.hatch) return false;
-      var asp = S.cssW / S.cssH, dist = c.span / (2 * 0.2493 * asp);
-      var ro = [c.t[0] + dist * Math.sin(c.yaw) * Math.cos(c.pit), c.t[1] + dist * Math.sin(c.pit), c.t[2] + dist * Math.cos(c.yaw) * Math.cos(c.pit)];
-      var fw = norm(sub(c.t, ro)), rt = norm(cross(fw, [0, 1, 0])), up = cross(rt, fw);
-      var xn = (x / S.cssW) * 2 - 1, yn = 1 - (y / S.cssH) * 2 - c.sh;
-      var rd = [0, 1, 2].map(function (i) { return fw[i] + rt[i] * xn * asp * 0.2493 + up[i] * yn * 0.2493; });
-      if (rd[2] >= 0) return false;
-      var t = (0.9 - ro[2]) / rd[2], hx = ro[0] + rd[0] * t, hy = ro[1] + rd[1] * t;
-      return Math.abs(hx - 2.2) < 0.45 && Math.abs(hy + 3.7) < 0.33;
-    };
     S.resetCam = resetCam;
     S.drumDigits = function () { return S.drums.map(function (d) { return ((Math.round(d.tg) % 10) + 10) % 10; }); };
     S.camState = function () { return { target: JSON.parse(JSON.stringify(tg)), now: cur && JSON.parse(JSON.stringify(cur)) }; };
