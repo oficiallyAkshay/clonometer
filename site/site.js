@@ -27,13 +27,7 @@
     lastF = f;
     return Math.max(1, Math.round(rate * f * 1.1));
   }
-  // 14 daily values with realistic variation that sum exactly to the real 14-day figure
-  function windowFrom(total) {
-    var w = [], s = 0, i; for (i = 0; i < 14; i++) { var v = Math.exp(Math.log(0.14) + rnd() * Math.log(3.6 / 0.14)); w.push(v); s += v; }
-    var out = w.map(function (v) { return Math.max(1, Math.round(v / s * total)); });
-    var diff = total - sum(out), k = 0; while (diff !== 0) { var idx = k++ % 14; if (diff > 0) { out[idx]++; diff--; } else if (out[idx] > 1) { out[idx]--; diff++; } }
-    return out;
-  }
+  var windowFrom = function (total) { return window.Slots.windowFrom(total, rnd); };   // slots.js: 14 daily values that sum exactly to the real 14-day figure
   var FALLBACK = { lifetime: 1200, last14d: 168 };      // small sample, only when metrics.json has no clone numbers
   function seedFrom(m) {
     var c = m && m.clones, ok = c && typeof c.lifetime === 'number' && typeof c.last14d === 'number';
@@ -60,14 +54,6 @@
   /* ---------- CSS fallback: a simple version of the stream ---------- */
   var fbTube = [];
   function buildFallback() {
-    var fb = $('#fb');
-    var html = '<div class="fbrail" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="fbbox"><div class="fbg"><b>14 DAYS</b><span id="fbw"></span></div><div class="fbwin" id="fbwin">';
-    ['d', 's', 'd', 'd', 'd', 's', 'd', 'd', 'd'].forEach(function (k) {
-      if (k === 's') html += '<div class="sepc">,</div>';
-      else html += '<div class="cell"><div class="strip">' + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (d) { return '<span>' + d + '</span>'; }).join('') + '</div></div>';
-    });
-    html += '</div><div class="fbtube" id="fbtube"></div></div><div class="fbplinth"><div class="fbplaque"><b>clonometer</b><span>In continuous service since day 1</span><i>Acc. no. 0001, 2026</i></div></div>';
-    fb.innerHTML = html;
     S.win.forEach(function (c) { fbTube.push({ c: c, t: performance.now() - 5000 }); });
     fbDraw();
     if (reduce) return;
@@ -142,7 +128,7 @@
 
   /* ---------- scene ---------- */
   var canvas = $('#gl');
-  function noGL() { root.classList.add('nogl'); canvas.style.display = 'none'; buildFallback(); }
+  function noGL() { root.classList.remove('glon'); root.classList.add('nogl'); canvas.style.display = 'none'; buildFallback(); }
   function barH() { root.style.setProperty('--barH', $('#bar').offsetHeight + 'px'); }
   barH(); addEventListener('resize', barH);
 
@@ -161,7 +147,7 @@
     scene.setDigits(digitsOf(S.life), !reduce);
     scene.seedTube(S.win, reduce ? [{ c: 640, x: -4.38, y: 0.8, z: -1.1 }, { c: 2900, x: -4.38, y: 2.4, z: -1.1 }, { c: 520, x: -4.2, y: 2.0, z: -0.2 }] : []);
     scene.start();
-    requestAnimationFrame(function () { requestAnimationFrame(function () { canvas.classList.add('on'); }); });
+    requestAnimationFrame(function () { requestAnimationFrame(function () { canvas.classList.add('on'); root.classList.add('glon'); }); });
     if (!reduce) setInterval(function () { if (!document.hidden) scene.addBead(dayCount()); }, scene.dayLen * 1000);
     addEventListener('resize', function () { scene.resize(); });
     if (window.ResizeObserver) new ResizeObserver(function () { barH(); scene.resize(); }).observe($('#bar'));
