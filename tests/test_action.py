@@ -108,16 +108,20 @@ def test_the_fetch_step_reads_the_action_context_through_env_and_uses_no_token()
     assert "uses" not in fetch
     assert "token" not in fetch["run"].lower()
     assert "--depth 1" in fetch["run"]
+    assert "--filter=blob:none" in fetch["run"]
 
 
 def _seed_action_repo(tmp_path: Path) -> tuple[Path, str]:
-    """A bare repository standing in for clonometer's own, holding a marker script."""
+    """A bare repository standing in for clonometer's own, holding a marker script
+    and a site file the runtime never needs."""
     seed = tmp_path / "seed"
     _git("init", "--quiet", "-b", "main", str(seed), check=True)
     (seed / "clonometer.py").write_text(
         "import sys; print('ran from the fetched checkout'); sys.exit(0)\n", encoding="utf-8"
     )
-    _git("-C", str(seed), "add", "clonometer.py", check=True)
+    (seed / "site").mkdir()
+    (seed / "site" / "share.png").write_text("not needed at runtime\n", encoding="utf-8")
+    _git("-C", str(seed), "add", "clonometer.py", "site/share.png", check=True)
     _git(
         "-C",
         str(seed),
@@ -135,6 +139,8 @@ def _seed_action_repo(tmp_path: Path) -> tuple[Path, str]:
     bare = server / "owner" / "clonometer.git"
     bare.parent.mkdir(parents=True)
     _git("clone", "--quiet", "--bare", str(seed), str(bare), check=True)
+    # GitHub serves filtered fetches; a bare repository on disk must be told to.
+    _git("-C", str(bare), "config", "uploadpack.allowFilter", "true", check=True)
     sha = _git(
         "-C", str(seed), "rev-parse", "HEAD", capture_output=True, text=True, check=True
     ).stdout.strip()
@@ -158,6 +164,38 @@ def test_the_fetch_step_clones_the_pinned_commit_of_the_action_repository(
     assert (tmp_path / "runner-temp" / "clonometer-action" / "clonometer.py").is_file()
     assert f"at {sha}" in fetch.stdout
     assert TOKEN not in fetch.stdout + fetch.stderr
+
+
+def test_the_fetch_step_downloads_only_the_script_not_the_site(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    server, sha = _seed_action_repo(tmp_path)
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    env.update(
+        {
+            "CLONOMETER_ACTION_REPOSITORY": "owner/clonometer",
+            "CLONOMETER_ACTION_REF": sha,
+            "CLONOMETER_SERVER": f"file://{server}",
+        }
+    )
+    fetch = _run_step("fetch", env, tmp_path)
+    assert fetch.returncode == 0, fetch.stderr
+    checkout = tmp_path / "runner-temp" / "clonometer-action"
+    assert (checkout / "clonometer.py").is_file()
+    assert not (checkout / "site").exists()
+    # The share image's content never reached the object store, not just the work tree.
+    blobs = _git(
+        "-C",
+        str(checkout),
+        "rev-list",
+        "--objects",
+        "--all",
+        "--missing=print",
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert any(line.startswith("?") for line in blobs.splitlines())
 
 
 def test_the_fetch_step_does_nothing_for_a_local_action(
