@@ -631,14 +631,8 @@ void main(){
     var gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' });
     if (!gl) return null;
     function sh(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; }
-    var vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS);
-    if (!vs || !fs) return null;
-    var pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
-    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { console.warn(gl.getProgramInfoLog(pr)); return null; }
-    gl.useProgram(pr);
-    var U = {}; ['uRes', 'uTime', 'uTgt', 'uSpan', 'uYaw', 'uPitch', 'uShiftY', 'uSpot', 'uCover', 'uCollapse', 'uGlow', 'uStill', 'uAng[0]', 'uVel[0]', 'uDX[0]', 'uSX[0]', 'uTrap', 'uKeep', 'uDebug', 'uHatch', 'uBead[0]', 'uBA[0]', 'tDig', 'tFace', 'tCov', 'tGau', 'tPlq']
-      .forEach(function (n) { U[n] = gl.getUniformLocation(pr, n); });
-    var aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+    var UNAMES = ['uRes', 'uTime', 'uTgt', 'uSpan', 'uYaw', 'uPitch', 'uShiftY', 'uSpot', 'uCover', 'uCollapse', 'uGlow', 'uStill', 'uAng[0]', 'uVel[0]', 'uDX[0]', 'uSX[0]', 'uTrap', 'uKeep', 'uDebug', 'uHatch', 'uBead[0]', 'uBA[0]', 'tDig', 'tFace', 'tCov', 'tGau', 'tPlq'];
+    var U, aniso, tGau;
     function tex(unit, canvasEl, wrapT) {
       var t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -653,12 +647,23 @@ void main(){
     }
     function upload(unit, t, canvasEl) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvasEl); gl.generateMipmap(gl.TEXTURE_2D); }
 
+    // everything that lives in the graphics context; runs again after the context is restored
+    function build() {
+      var vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return false;
+      var pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
+      if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { console.warn(gl.getProgramInfoLog(pr)); return false; }
+      gl.useProgram(pr);
+      U = {}; UNAMES.forEach(function (n) { U[n] = gl.getUniformLocation(pr, n); });
+      aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+      tex(0, drawDigits(), gl.REPEAT); tex(1, drawFace()); tex(2, drawCover()); tGau = tex(3, gauge.c); tex(4, drawPlaque());
+      gl.uniform1i(U.tPlq, 4); gl.uniform1i(U.tDig, 0); gl.uniform1i(U.tFace, 1); gl.uniform1i(U.tCov, 2); gl.uniform1i(U.tGau, 3);
+      gl.uniform1fv(U['uDX[0]'], new Float32Array(DX));
+      gl.uniform1fv(U['uSX[0]'], new Float32Array(SEP_X));
+      return true;
+    }
     drawGauge(opts.win || [1]);
-    var tDig = tex(0, drawDigits(), gl.REPEAT), tFace = tex(1, drawFace()), tCov = tex(2, drawCover()), tGau = tex(3, gauge.c);
-    var tPlq = tex(4, drawPlaque());
-    gl.uniform1i(U.tPlq, 4); gl.uniform1i(U.tDig, 0); gl.uniform1i(U.tFace, 1); gl.uniform1i(U.tCov, 2); gl.uniform1i(U.tGau, 3);
-    gl.uniform1fv(U['uDX[0]'], new Float32Array(DX));
-    gl.uniform1fv(U['uSX[0]'], new Float32Array(SEP_X));
+    if (!build()) return null;
 
     var S = {
       reduce: !!opts.reduce, scroll: 0, scrollS: 0, collapse: false, cov: 0, cam: 0, glow: 0,
@@ -823,6 +828,8 @@ void main(){
     S.invalidate = function () { S.dirty = true; if (S.running) schedule(); };
     S.start = function () { if (S.running) return; S.running = true; lastT = performance.now(); S.invalidate(); };
     S.stop = function () { S.running = false; if (S.raf) cancelAnimationFrame(S.raf); S.raf = 0; };
+    // after a lost context comes back: rebuild what lived in it, the gauge picture is still on its own canvas
+    S.restore = function () { if (!build()) return false; resize(); return true; };
 
     S.setScroll = function (p) { S.scroll = p; S.invalidate(); };
     S.setCollapsed = function (b) { S.collapse = b; S.invalidate(); };
@@ -835,24 +842,13 @@ void main(){
       }
       S.invalidate();
     };
-    // add n digit-steps to each drum (ticks[i] is the count of increments of drum i)
-    S.spin = function (ticks) {
-      for (var i = 0; i < 7; i++) {
-        var d = S.drums[i], tk = ticks[i]; if (!tk) continue;
-        var steps = tk % 10 + 10 * Math.min(Math.floor(tk / 10), 3);
-        d.tg += steps;
-        if (S.reduce) { d.a = d.tg; d.v = 0; } else { d.k = steps > 14 ? 42 : 120; d.t0 = clock + (6 - i) * 0.06; }
-      }
-      S.invalidate();
-    };
-
     var flow = window.Flow.create({
-      full: opts.full,
+      full: opts.full, replay: !!opts.replay,
       onGate: function (cnt, on) { if (opts.onGate) opts.onGate(cnt, on); },
       onWindow: function (total, cs, ev) { drawGauge(cs); upload(3, tGau, gauge.c); if (opts.onWindow) opts.onWindow(total, cs, ev); S.invalidate(); }
     });
     S.flow = flow; S.dayLen = flow.DAY; S.trap = 0; S.keep = 1.0;
-    S.addBead = flow.addBead; S.seedTube = flow.seed;
+    S.seedTube = flow.seed;
     S.setGate = function (on) { flow.gateOn = on; };
     S.stepBeads = function (dt, now) { var m = flow.step(dt, now / 1000); S.trap = flow.trap; S.keep = flow.keep; return m; };
     S.packBeads = flow.pack;
