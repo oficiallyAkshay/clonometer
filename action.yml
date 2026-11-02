@@ -82,8 +82,18 @@ runs:
         dir="${RUNNER_TEMP}/clonometer-action"
         rm -rf "${dir}"
         git init --quiet "${dir}"
-        git -C "${dir}" fetch --quiet --depth 1 \
-          "${CLONOMETER_SERVER}/${CLONOMETER_ACTION_REPOSITORY}.git" "${CLONOMETER_ACTION_REF}"
+        # Only the script is downloaded: the fetch skips file contents
+        # (blob:none) and the checkout asks for the one file it needs, so
+        # site/ never travels with a consumer run. The fetch itself, the
+        # request that GitHub counts, is unchanged. The remote is named and
+        # marked as a promisor so the checkout can fetch that one file.
+        git -C "${dir}" remote add origin \
+          "${CLONOMETER_SERVER}/${CLONOMETER_ACTION_REPOSITORY}.git"
+        git -C "${dir}" config remote.origin.promisor true
+        git -C "${dir}" config remote.origin.partialclonefilter blob:none
+        git -C "${dir}" sparse-checkout set --no-cone /clonometer.py
+        git -C "${dir}" fetch --quiet --depth 1 --filter=blob:none \
+          origin "${CLONOMETER_ACTION_REF}"
         git -C "${dir}" checkout --quiet FETCH_HEAD
         echo "fetched ${CLONOMETER_ACTION_REPOSITORY} at ${CLONOMETER_ACTION_REF}"
 
