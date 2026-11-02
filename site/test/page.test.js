@@ -54,6 +54,39 @@ test('the 14 daily values always add up to the real 14-day figure', () => {
   }
 });
 
+test('the slot loop ends for every total from 0 to 40 and for several seeds', () => {
+  for (let total = 0; total <= 40; total++) for (let seed = 1; seed <= 20; seed++) {
+    const w = Page.windowFrom(total, lcg(seed));
+    assert.strictEqual(w.reduce((a, b) => a + b, 0), total);
+  }
+});
+
+test('the page carries a social card: title, description, a 1200 by 630 png image and a twitter card', () => {
+  const html = read('index.html');
+  const meta = (attr, name) => { const m = html.match(new RegExp('<meta ' + attr + '="' + name + '" content="([^"]*)"')); return m && m[1]; };
+  for (const n of ['og:title', 'og:description']) assert.ok(meta('property', n), n);
+  assert.strictEqual(meta('name', 'twitter:card'), 'summary_large_image');
+  const img = meta('property', 'og:image');
+  assert.match(img, /^https:\/\/.+\.png$/);
+  const b = fs.readFileSync(path.join(__dirname, '..', img.split('/').pop()));
+  assert.strictEqual(b.subarray(1, 4).toString(), 'PNG');
+  assert.strictEqual(b.readUInt32BE(16), 1200);
+  assert.strictEqual(b.readUInt32BE(20), 630);
+});
+
+test('the footer says clones include automated traffic', () => {
+  assert.ok(read('index.html').includes('Clones include automated traffic.'));
+});
+
+test('the poster machine is in the markup with no digits, shown from the first paint and hidden only once the canvas is on', () => {
+  const html = read('index.html'), css = read('style.css');
+  assert.match(html, /id="fb"[^>]*><div class="fbrail"/);
+  assert.match(html, /id="fbwin"><\/div>/);
+  assert.match(css, /\n\.fb\{display:block/);
+  assert.match(css, /\.glon \.fb\{opacity:0/);
+  assert.match(read('site.js'), /classList\.add\('glon'\)/);
+});
+
 function fakes() {
   const calls = [], canvas = new EventTarget(), doc = new EventTarget();
   doc.hidden = false;

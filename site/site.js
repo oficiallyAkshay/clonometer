@@ -35,15 +35,13 @@
   /* ---------- CSS fallback: a simple version of the stream ---------- */
   // still: the real figures, nothing moves; without the data file (c is null) the poster carries no digits
   function buildFallback(c) {
-    var fb = $('#fb');
-    var html = '<div class="fbrail" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="fbbox"><div class="fbg"><b>14 DAYS</b><span id="fbw"></span></div><div class="fbwin" id="fbwin">';
-    if (c) ['d', 's', 'd', 'd', 'd', 's', 'd', 'd', 'd'].forEach(function (k) {
+    if (!c) return;    // the poster shell is in index.html; the digits come only with real numbers
+    var html = '';
+    ['d', 's', 'd', 'd', 'd', 's', 'd', 'd', 'd'].forEach(function (k) {
       if (k === 's') html += '<div class="sepc">,</div>';
       else html += '<div class="cell"><div class="strip">' + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (d) { return '<span>' + d + '</span>'; }).join('') + '</div></div>';
     });
-    html += '</div><div class="fbtube" id="fbtube"></div></div><div class="fbplinth"><div class="fbplaque"><b>clonometer</b><span>In continuous service since day 1</span><i>Acc. no. 0001, 2026</i></div></div>';
-    fb.innerHTML = html;
-    if (!c) return;
+    $('#fbwin').innerHTML = html;
     $('#fbtube').innerHTML = S.win.map(function (n) { var d = 8 + 14 * Math.sqrt(Math.min(1, n / 2600)); return '<i style="width:' + d + 'px;height:' + d + 'px"></i>'; }).join('');
     $('#fbw').textContent = fmt(sum(S.win));
     var ds = digitsOf(S.life); $$('#fbwin .strip').forEach(function (s, i) { s.style.transform = 'translateY(' + (-ds[i] * 10) + '%)'; });
@@ -106,7 +104,7 @@
 
   /* ---------- scene ---------- */
   var canvas = $('#gl');
-  function noGL(c) { root.classList.add('nogl'); canvas.style.display = 'none'; buildFallback(c); }
+  function noGL(c) { root.classList.remove('glon'); root.classList.add('nogl'); canvas.style.display = 'none'; buildFallback(c); }
   function barH() { root.style.setProperty('--barH', $('#bar').offsetHeight + 'px'); }
   barH(); addEventListener('resize', barH);
 
@@ -126,7 +124,7 @@
     scene.setDigits(digitsOf(S.life), !reduce);
     scene.seedTube(S.win, reduce ? [{ c: 640, x: -4.38, y: 0.8, z: -1.1 }, { c: 2900, x: -4.38, y: 2.4, z: -1.1 }, { c: 520, x: -4.2, y: 2.0, z: -0.2 }] : []);
     scene.start();
-    requestAnimationFrame(function () { requestAnimationFrame(function () { canvas.classList.add('on'); }); });
+    requestAnimationFrame(function () { requestAnimationFrame(function () { canvas.classList.add('on'); root.classList.add('glon'); }); });
     addEventListener('resize', function () { scene.resize(); });
     if (window.ResizeObserver) new ResizeObserver(function () { barH(); scene.resize(); }).observe($('#bar'));
     Page.watch(canvas, document, scene, function () { noGL(c); });

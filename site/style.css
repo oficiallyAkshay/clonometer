@@ -65,8 +65,10 @@ h1{max-width:none}
 .x{position:absolute;top:8px;right:8px;font:500 var(--t1)/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;background:transparent;border:1px solid #8c887e;border-radius:var(--r);padding:12px 12px;cursor:pointer;min-height:44px}
 
 /* fallback, drawn in CSS when WebGL is unavailable */
-.fb{display:none}
-.nogl .fb{display:block;position:absolute;left:50%;top:44%;width:min(860px,92vw);transform:translate(-50%,-50%)}
+/* poster, drawn in CSS: shown from the first paint, until the canvas is on, and for good when WebGL is unavailable */
+.fb{display:block;position:absolute;left:50%;top:44%;width:min(860px,92vw);transform:translate(-50%,-50%);transition:opacity .5s,visibility 0s}
+.glon .fb{opacity:0;visibility:hidden;transition:opacity .5s,visibility 0s .5s}
+.auto{font:500 var(--t1)/1.4 var(--sans);color:#3a3732}
 .fbbox{position:relative;direction:ltr;background:linear-gradient(172deg,#b9bdc1 0%,#8d9297 40%,#a9adb1 58%,#7a7f84 100%);border:1px solid #5e656b;border-radius:var(--r);
   padding:26px;display:grid;grid-template-columns:150px 1fr;gap:22px;box-shadow:0 40px 50px -26px rgba(20,18,14,.7),inset 0 2px 0 rgba(255,255,255,.55),inset 0 -3px 0 rgba(0,0,0,.25),inset 0 0 0 8px rgba(0,0,0,.06)}
 .fbwin{background:#101417;border:5px solid #9b7a3e;border-radius:var(--r);padding:6px;display:flex;gap:2px;justify-content:center;align-items:center;box-shadow:inset 0 4px 10px rgba(0,0,0,.7),0 0 0 1px #5c4724}
@@ -102,7 +104,7 @@ h1{max-width:none}
   .stats{gap:2px 16px}
   .stats svg{width:14px;height:14px}
   .fbbox{grid-template-columns:1fr;padding:14px}
-  .nogl .fb{top:56%}
+  .fb{top:56%}
   .cell .strip span{font-size:var(--t3)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
