@@ -36,8 +36,8 @@ test('beads stay inside the tube all the way up the riser, round the bend and al
   let sawBend = false, samples = 0, t = 0;
   for (let i = 0; i < 60 * 8; i++) {
     t += 1 / 60; f.step(1 / 60, t);
-    const P = f.pack(), r = P[0][14 * 4 + 3];
-    const x = P[0][14 * 4], y = P[0][14 * 4 + 1];   // the 15th bead is the one sent up the riser, after the 14 seeded
+    const P = f.pack(); let n = 35; while (n > 0 && P[0][n * 4 + 1] < -10) n--;   // the newest live bead is the one sent up the riser
+    const r = P[0][n * 4 + 3], x = P[0][n * 4], y = P[0][n * 4 + 1];
     if (y < -10 || x > -3.5 || x < PIPE.riserX - 0.01) continue;     // slot 0 and beyond is the run itself
     samples++;
     if (y > PIPE.bendCY && x < PIPE.bendCX) sawBend = true;

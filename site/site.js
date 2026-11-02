@@ -13,27 +13,23 @@
 
   $$('.lic').forEach(function (e) { e.textContent = LICENSE_NAME; });
   $('#lRepo').href = 'https://github.com/' + REPO_SLUG;
-  $('#lIssues').href = 'https://github.com/' + REPO_SLUG + '/issues';
 
   /* ---------- the sample stream ---------- */
   var seed = 11;
   function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
   var S = { life: 0, win: [] }, rate = 22;
   var sum = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); };
-  var regime = 'normal', left = 6;
-  function dayCount() {          // stream averages the real daily rate: quiet stretches, normal days, occasional bursts
-    if (--left <= 0) {
-      var u = rnd();
-      if (u < 0.3) { regime = 'quiet'; left = 4 + Math.floor(rnd() * 5); }
-      else if (u < 0.5) { regime = 'burst'; left = 2 + Math.floor(rnd() * 3); }
-      else { regime = 'normal'; left = 5 + Math.floor(rnd() * 6); }
-    }
-    var f = regime === 'quiet' ? 0.05 + rnd() * 0.25 : regime === 'burst' ? 2.4 + rnd() * 2.2 : 0.55 + rnd() * 0.6;
-    return Math.max(1, Math.round(rate * f));
+  // every ball is drawn independently on a log scale, so neighbours differ a lot: from a seventh of a typical day to three and a half times
+  var lastF = 1;
+  function dayCount() {
+    var f, tries = 0;
+    do { f = Math.exp(Math.log(0.14) + rnd() * Math.log(3.6 / 0.14)); } while (++tries < 8 && Math.abs(Math.log(f / lastF)) < 0.7);
+    lastF = f;
+    return Math.max(1, Math.round(rate * f * 1.1));
   }
   // 14 daily values with realistic variation that sum exactly to the real 14-day figure
   function windowFrom(total) {
-    var w = [], s = 0, i; for (i = 0; i < 14; i++) { var v = 0.4 + rnd() * 1.2; if (i === 6 || i === 7) v *= 0.45; w.push(v); s += v; }
+    var w = [], s = 0, i; for (i = 0; i < 14; i++) { var v = Math.exp(Math.log(0.14) + rnd() * Math.log(3.6 / 0.14)); w.push(v); s += v; }
     var out = w.map(function (v) { return Math.max(1, Math.round(v / s * total)); });
     var diff = total - sum(out), k = 0; while (diff !== 0) { var idx = k++ % 14; if (diff > 0) { out[idx]++; diff--; } else if (out[idx] > 1) { out[idx]--; diff++; } }
     return out;
@@ -94,11 +90,12 @@
   function putFooter(m) {
     function put(k, v) { var el = document.querySelector('[data-k="' + k + '"]'); if (typeof v === 'number' && v > 0) { el.textContent = fmt(v); return true; } return false; }
     ['stars', 'forks', 'watchers'].forEach(function (k) { $('[data-k="' + k + '"]').closest('li').hidden = !put(k, m[k]); });
-    $('[data-k="issues"]').closest('li').hidden = !put('issues', m.openIssues);
     var c = m.clones || {}, has = put('clonesLife', c.lifetime);
-    $('#w14').hidden = !put('clones14', c.last14d);
+    $('#liClones14').hidden = !put('clones14', c.last14d);
     $('#liClones').hidden = !has;
-    $('#liTotal').hidden = !put('totalCounted', m.totalCounted && m.totalCounted.clones);
+    var tc = m.totalCounted || {};
+    $('#liTotal').hidden = !put('totalCounted', tc.clones);
+    $('#liRepos').hidden = !put('repos', tc.repos);
   }
   var metricsP = fetch('metrics.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return null; });
 
@@ -159,7 +156,7 @@
     var eff = seedFrom(r[1]); putFooter(eff);
     var ok = false;
     if (/[?&]nogl\b/.test(location.search)) { noGL(); return; }
-    try { scene = window.Scene.create(canvas, { reduce: reduce, win: S.win, full: rate * 6, onGate: onGate, onWindow: onWindow, onHatch: openLedger, hatch: ledgerRows.length > 0 }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
+    try { scene = window.Scene.create(canvas, { reduce: reduce, win: S.win, full: rate * 4, onGate: onGate, onWindow: onWindow, onHatch: openLedger, hatch: ledgerRows.length > 0 }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
     if (!ok) { noGL(); return; }
     scene.setDigits(digitsOf(S.life), !reduce);
     scene.seedTube(S.win, reduce ? [{ c: 640, x: -4.38, y: 0.8, z: -1.1 }, { c: 2900, x: -4.38, y: 2.4, z: -1.1 }, { c: 520, x: -4.2, y: 2.0, z: -0.2 }] : []);

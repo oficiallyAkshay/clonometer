@@ -61,17 +61,19 @@ vec2 map(vec3 p){
   res=mn(res,vec2(body,1.));
   res=mn(res,vec2(min(rW,rG),2.));
   res=mn(res,vec2(dr,3.));
-  // one pipe: riser from the plinth, over the top, a run of 14 slots, a taped leak, a funnel into the counter
+  // one pipe: riser from the plinth, over the top, a run of 14 slots, a downward T-join into the counter, the other end of the T taped shut
   vec3 rq=p-vec3(RX,0.,PZ);
   float pipeF=max(length(rq.xz)-0.165,abs(p.y+1.74)-0.19);
   vec3 hq=p-vec3(0.,PY,PZ);
-  float jr=clamp(floor((p.x+3.81)/0.52+0.5),0.,14.); float rxx=-3.81+0.52*jr;
+  float jr=clamp(floor((p.x+3.81)/0.52+0.5),0.,16.); float rxx=-3.81+0.52*jr;
   float rings=length(vec2(length(hq.yz)-0.17,p.x-rxx))-0.013;
-  float rt=mix(0.17,0.33,smoothstep(3.5,3.75,p.x));
-  float trough=max(max(abs(length(hq.yz)-rt)-0.022,max(3.47-p.x,p.x-4.15)),-hq.y-0.07);
-  trough=min(trough,max(length(hq.yz)-rt,abs(p.x-4.01)-0.015));
+  float rt=0.17;
+  float trough=max(length(hq.yz)-rt,abs(p.x-4.72)-0.015);   // the blind end of the run, closed with a disc under the tape
   vec3 fq=p-vec3(3.72,0.,-0.5);
-  float funnel=max(abs(length(fq.xz)-mix(0.22,0.5,clamp((p.y-2.0)/0.34,0.,1.)))-0.022,abs(p.y-2.17)-0.17)*0.7;
+  // the T-join: a glass pipe drops from the run into the housing, with a brass collar at the join and a flange where it meets the machine
+  float flange=max(abs(length(fq.xz)-0.22)-0.035,abs(p.y-2.02)-0.025);   // where the stem meets the housing
+  float collar=length(vec2(length(fq.xz)-0.172,p.y-2.36))-0.014;
+  float funnel=min(flange,collar);
   float posts=min(min(sdRB(p-vec3(-2.5,2.2,-0.5),vec3(0.05,0.22,0.05),0.01),sdRB(p-vec3(0.2,2.2,-0.5),vec3(0.05,0.22,0.05),0.01)),sdRB(p-vec3(2.9,2.2,-0.5),vec3(0.05,0.22,0.05),0.01));
   float brk=min(max(length(p.yz-vec2(1.2,-0.5))-0.04,abs(p.x+4.12)-0.15),max(length(p.yz-vec2(-0.8,-0.5))-0.04,abs(p.x+4.12)-0.15));
   // box details: handle, hinge barrels, cable gland
@@ -83,12 +85,12 @@ vec2 map(vec3 p){
   // the tape: layered cloth tape wrapped over the split, torn edges, slightly raised
   float ang=atan(hq.z,hq.y);
   float tl1=0.4+0.06*(vn(vec2(ang*3.,1.))-0.5);
-  float tape1=max(abs(length(hq.yz)-rt-0.03)-0.015,max(abs(p.x-3.8)-tl1,-hq.y-0.2));
+  float tape1=max(abs(length(hq.yz)-rt-0.03)-0.015,abs(p.x-4.62)-(tl1*0.45));
   float tl2=0.24+0.05*(vn(vec2(ang*4.,7.))-0.5);
-  float tape2=max(abs(length(hq.yz)-rt-0.046)-0.013,max(abs(p.x-3.68)-tl2,-hq.y-0.04));
+  float tape2=max(abs(length(hq.yz)-rt-0.046)-0.013,abs(p.x-4.59)-(tl2*0.45));
   float tl3=0.18+0.045*(vn(vec2(ang*5.,3.))-0.5);
-  float tape3=max(abs(length(hq.yz)-rt-0.06)-0.012,max(abs(p.x-3.98)-tl3,-hq.y-0.12));
-  float tape=min(tape1,min(tape2,tape3));
+  float tape3=max(abs(length(hq.yz)-rt-0.06)-0.012,abs(p.x-4.65)-(tl3*0.45));
+  float tape=min(min(tape1,min(tape2,tape3)),max(length(hq.yz)-rt-0.05,abs(p.x-4.745)-0.012));   // a patch of tape over the end hole
   vec3 gk=p-vec3(0.,-1.9,-1.1);
   float gasket=max(sdRB(gk,vec3(4.62,0.045,2.2),0.015),-sdBox(gk,vec3(4.54,0.1,2.12)));
   float hw=min(min(min(pipeF,brk),min(posts,min(rings,min(trough,funnel)))),min(gasket,min(handle,min(hinge,gland))));
@@ -423,8 +425,11 @@ void main(){
         col=col*0.84+envMap(reflect(rd,ng),0.03,cone*0.9+0.1)*F*2.4+vec3(0.55,0.62,0.6)*smoothstep(0.35,0.0,abs(dot(rd,ng)))*0.35; } }
     vec2 o2=ro.yz-vec2(PY,PZ); vec2 d2=rd.yz; float a2=dot(d2,d2), b2=dot(o2,d2), c2=dot(o2,o2)-TR*TR; float h2=b2*b2-a2*c2;
     if(h2>0.&&a2>1e-6){ float tg=(-b2-sqrt(h2))/a2; vec3 pg=ro+rd*tg;
-      if(tg>0.&&tg<t&&pg.x>BC.x&&pg.x<3.47){ vec3 ng=normalize(vec3(0.,pg.y-PY,pg.z-PZ)); float F=0.04+0.96*pow(1.-abs(dot(rd,ng)),4.);
-        col+=vec3(1.0,0.92,0.6)*smoothstep(0.085,0.0,abs(pg.x-3.4-0.04*sin(pg.y*38.+pg.z*26.)))*3.2;   // the crack
+      if(tg>0.&&tg<t&&pg.x>BC.x&&pg.x<4.72){ vec3 ng=normalize(vec3(0.,pg.y-PY,pg.z-PZ)); float F=0.04+0.96*pow(1.-abs(dot(rd,ng)),4.);
+        col=col*0.84+envMap(reflect(rd,ng),0.03,cone*0.9+0.1)*F*2.4+vec3(0.55,0.62,0.6)*smoothstep(0.35,0.0,abs(dot(rd,ng)))*0.35; } }
+    vec2 o3=ro.xz-vec2(3.72,PZ); float a3=dot(rd.xz,rd.xz), b3=dot(o3,rd.xz), c3=dot(o3,o3)-TR*TR; float h3=b3*b3-a3*c3;   // the downward leg of the T, into the housing where it always entered
+    if(h3>0.&&a3>1e-6){ float tg=(-b3-sqrt(h3))/a3; vec3 pg=ro+rd*tg;
+      if(tg>0.&&tg<t&&pg.y>2.02&&pg.y<PY){ vec3 ng=normalize(vec3(pg.x-3.72,0.,pg.z-PZ)); float F=0.04+0.96*pow(1.-abs(dot(rd,ng)),4.);
         col=col*0.84+envMap(reflect(rd,ng),0.03,cone*0.9+0.1)*F*2.4+vec3(0.55,0.62,0.6)*smoothstep(0.35,0.0,abs(dot(rd,ng)))*0.35; } }
     // the bend: the quarter torus between them, found by marching its distance field from where the ray enters its box
     vec3 bh=vec3((BR+TR)*0.5,(BR+TR)*0.5,TR), bm=BC+vec3(-bh.x,bh.y,0.);
@@ -852,9 +857,9 @@ void main(){
     /* ---------- exploring: drag orbits, wheel zooms, shift or right drag pans, double click resets ---------- */
     var cur = null, tg = null, touched = false;
     var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
-    function baseCam() { return portrait() ? { tx: 0.1, ty: 0.15, span: 9.9, yaw: 0.08, pit: 0.15 } : { tx: 0.1, ty: -0.06, span: 13.1, yaw: 0.08, pit: 0.15 }; }
+    function baseCam() { return portrait() ? { tx: 0.1, ty: -0.25, span: 10.4, yaw: 0.08, pit: 0.15 } : { tx: 0.1, ty: -0.6, span: 17.8, yaw: 0.08, pit: 0.15 }; }
     function resetCam() { tg = baseCam(); touched = false; S.invalidate(); }
-    function limit() { tg.yaw = clamp(tg.yaw, -1.17, 1.17); tg.pit = clamp(tg.pit, -0.08, 1.05); tg.span = clamp(tg.span, 5, 15); tg.tx = clamp(tg.tx, -2.5, 2.5); tg.ty = clamp(tg.ty, -1.2, 1.8); touched = true; S.invalidate(); }
+    function limit() { tg.yaw = clamp(tg.yaw, -1.17, 1.17); tg.pit = clamp(tg.pit, -0.08, 1.05); tg.span = clamp(tg.span, 5, 19); tg.tx = clamp(tg.tx, -2.5, 2.5); tg.ty = clamp(tg.ty, -1.2, 1.8); touched = true; S.invalidate(); }
     function pan(dx, dy) { var k = tg.span / S.cssW; tg.tx -= Math.cos(tg.yaw) * dx * k; tg.ty += dy * k; limit(); }
     function orbit(dx, dy) { tg.yaw -= dx * 0.006; tg.pit += dy * 0.006; limit(); }
     var ptrs = {}, moved = 0, down = null;
