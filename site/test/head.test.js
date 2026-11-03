@@ -49,7 +49,7 @@ test('the crawl and agent files exist and agree with each other', () => {
   const llms = read('llms.txt');
   assert.match(llms, /^# clonometer\n\n> /);
   assert.ok(llms.includes(site));
-  const sec = read('.well-known/security.txt');
+  const sec = read('security.txt');
   assert.match(sec, /^Contact: https:\/\//);
   assert.ok(new Date(sec.match(/^Expires: (\S+)$/m)[1]) > new Date(), 'security.txt has expired');
   assert.match(read('404.html'), /<title>clonometer[^<]*<\/title>[\s\S]*href="\/clonometer\/"/);
@@ -60,7 +60,24 @@ test('the crawl and agent files exist and agree with each other', () => {
 });
 
 test('the site files hold no em dash', () => {
-  for (const f of ['index.html', '404.html', 'llms.txt', 'robots.txt', 'sitemap.xml', 'manifest.webmanifest', '.well-known/security.txt']) {
+  for (const f of ['index.html', '404.html', 'llms.txt', 'robots.txt', 'sitemap.xml', 'manifest.webmanifest', 'security.txt']) {
     assert.ok(!read(f).includes('—'), f);
   }
+});
+
+test('the head links a 180 px PNG apple-touch-icon that exists', () => {
+  const href = head.match(/<link rel="apple-touch-icon" href="([^"]+)"/)[1];
+  const png = fs.readFileSync(path.join(__dirname, '..', href));
+  assert.strictEqual(png.subarray(1, 4).toString(), 'PNG');
+  assert.strictEqual(png.readUInt32BE(16), 180);
+  assert.strictEqual(png.readUInt32BE(20), 180);
+});
+
+test('no site file sits under a hidden path, because the Pages upload skips those', () => {
+  const walk = (d) => fs.readdirSync(path.join(__dirname, '..', d), { withFileTypes: true }).flatMap((e) => {
+    const p = path.join(d, e.name);
+    return e.isDirectory() ? walk(p) : [p];
+  });
+  const hidden = walk('.').filter((p) => p.split(path.sep).some((s) => s.startsWith('.')));
+  assert.deepStrictEqual(hidden, []);
 });
