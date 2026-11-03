@@ -48,6 +48,22 @@ test('the 14 daily values always add up to the real 14-day figure', () => {
   }
 });
 
+test('the first paint shows the poster machine with no number on it, and the canvas hides it once on', () => {
+  const html = read('index.html'), css = read('style.css'), js = read('site.js');
+  const fb = html.slice(html.indexOf('id="fb"'), html.indexOf('</main>'));
+  assert.match(fb, /fbplaque/);
+  assert.match(fb, /id="fbwin"/);
+  assert.doesNotMatch(fb, /<span>\d<\/span>|id="fbw"[^>]*>\d/);
+  assert.doesNotMatch(css, /(^|\n)\.fb\{display:none\}/);
+  assert.match(css, /\.glon \.fb\{display:none\}/);
+  assert.match(js, /classList\.add\('glon'\)/);
+  assert.match(js, /classList\.remove\('glon'\)/);
+});
+
+test('the footer says clones include automated traffic', () => {
+  assert.match(read('index.html'), /<footer[\s\S]*Clones include automated traffic\.[\s\S]*<\/footer>/);
+});
+
 function fakes() {
   const calls = [], canvas = new EventTarget(), doc = new EventTarget();
   doc.hidden = false;
