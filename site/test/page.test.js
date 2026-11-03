@@ -6,7 +6,6 @@ const path = require('node:path');
 const Page = require('../page.js');
 
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const lcg = (seed) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
 
 test('a failed or empty data file gives no clone numbers', () => {
   for (const m of [null, undefined, {}, { clones: {} }, { clones: { lifetime: 'x', last14d: 3 } }, { clones: { lifetime: 5 } }, { clones: { lifetime: -1, last14d: 2 } }, { clones: { lifetime: 1.5, last14d: 2 } }]) {
@@ -42,13 +41,18 @@ test('every number in the footer starts hidden and empty, so a failed fetch leav
   }
 });
 
-test('the 14 daily values always add up to the real 14-day figure', () => {
-  for (const total of [0, 1, 5, 13, 14, 168, 312, 527, 4000]) {
-    const w = Page.windowFrom(total, lcg(11));
-    assert.strictEqual(w.length, 14);
-    assert.strictEqual(w.reduce((a, b) => a + b, 0), total);
-    assert.ok(w.every((n) => n >= 0));
-  }
+test('no daily values are invented: the data file has no daily series, so the tube shape is fixed and the 14-day figure shows as one number', () => {
+  assert.strictEqual(Page.windowFrom, undefined);
+  assert.strictEqual(Page.decor.length, 14);
+  assert.strictEqual(new Set(Page.decor).size, 1, 'decorative beads must all be equal, so they cannot read as days');
+  const js = read('site.js'), scene = read('scene.js'), page = read('page.js');
+  assert.doesNotMatch(js + page, /windowFrom|rnd\(|seed = 11|S\.win/);
+  assert.match(js, /fbw'\)\.textContent = fmt\(S\.fig\)/);
+  assert.match(js, /vWin\.textContent = fmt\(S\.fig\)/);
+  const gauge = scene.slice(scene.indexOf('function drawGauge'), scene.indexOf('var DX = []'));
+  assert.doesNotMatch(gauge, /win\[|Math\.max|bh/, 'the small screen draws no bars');
+  assert.deepStrictEqual(JSON.parse(read('metrics.json')).clones.last14d, 527);
+  assert.strictEqual(Object.keys(JSON.parse(read('metrics.json')).clones).join(), 'lifetime,last14d');
 });
 
 test('the first paint shows the poster machine with no number on it, and the canvas hides it once on', () => {
