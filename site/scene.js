@@ -517,7 +517,6 @@ void main(){
     x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
     x.globalCompositeOperation = 'lighter';
     function brass(x0, y0, x1, y1) { x.fillStyle = '#0f0'; x.fillRect(FX(x0), FY(y1), (x1 - x0) * S, (y1 - y0) * S); }
-    function frame(x0, y0, x1, y1) { x.strokeStyle = '#f00'; x.lineWidth = 3; x.strokeRect(FX(x0), FY(y1), (x1 - x0) * S, (y1 - y0) * S); }
     function text(s, px, py, size, align, w, sp) {
       x.fillStyle = '#f00'; x.textAlign = align || 'left';
       x.font = (w || 600) + ' ' + Math.round(size * S) + 'px ' + MONO;
@@ -530,7 +529,6 @@ void main(){
     line(-1.77, -1.2, -1.43, -1.04, 4);
     // labels directly above the two displays
     text('GITHUB \u00b7 14 DAYS', -3.02, 0.73, 0.1, 'center', 700, 3);
-    text('CLONOMETER \u00b7 FOREVER', 0.75, 0.73, 0.1, 'center', 700, 4);
     // panel seams and engraved edge lines
     line(-3.85, 0.82, 3.85, 0.82, 2); line(-3.85, -0.82, 3.85, -0.82, 2);
     line(-3.85, 1.7, 3.85, 1.7, 1.5); line(-3.85, -1.7, 3.85, -1.7, 1.5);
@@ -542,13 +540,8 @@ void main(){
       for (var tk = 0; tk < 7; tk++) { var an = Math.PI * (1.1 + tk * 0.13); line(g[0] + Math.cos(an) * 0.075, g[1] - Math.sin(an) * 0.075, g[0] + Math.cos(an) * 0.095, g[1] - Math.sin(an) * 0.095, 2); }
       line(g[0], g[1], g[0] + 0.05, g[1] + 0.05, 3);
     });
-    // stamped serial plate
-    brass(1.9, -1.58, 3.5, -1.12); frame(1.9, -1.58, 3.5, -1.12);
-    text('SERIAL No. 0001', 2.7, -1.32, 0.075, 'center', 700, 3);
-    text('CLONOMETER', 2.7, -1.5, 0.06, 'center', 600, 4);
-    // upper strip, shown when the cover is down
-    text('CLONOMETER', -3.75, 1.3, 0.15, 'left', 800, 10);   // wholly left of the seam
-    text('No. 0001', 1.7, 1.3, 0.2, 'right', 700, 6);
+    // upper strip, shown when the cover is down: the one wordmark, wholly left of the seam and clear of the two gauges
+    text('clonometer', -3.75, 1.3, 0.15, 'left', 800, 3);
     line(-3.3, 1.06, 1.82, 1.06, 2.5);
     // corner screws
     [[-3.62, 1.56], [3.62, 1.56], [-3.62, -1.56], [3.62, -1.56]].forEach(function (s, i) {

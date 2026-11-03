@@ -8,6 +8,8 @@
     var c = m && m.clones;
     return c && whole(c.lifetime) && whole(c.last14d) ? { life: c.lifetime, last14d: c.last14d } : null;
   }
+  // stars and watchers show from 10 stars; before that the footer shows clones only
+  function showStars(m) { return !!m && whole(m.stars) && m.stars >= 10; }
   // the label of the cross-repository total: it is the sum of the owner's own repositories
   function totalLabel(m) {
     var tc = m && m.totalCounted;
@@ -35,6 +37,6 @@
     doc.addEventListener('visibilitychange', function () { if (doc.hidden) scene.stop(); else if (!lost) scene.start(); });
   }
 
-  var api = { clonesOf: clonesOf, totalLabel: totalLabel, windowFrom: windowFrom, watch: watch };
+  var api = { clonesOf: clonesOf, showStars: showStars, totalLabel: totalLabel, windowFrom: windowFrom, watch: watch };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Page = api;
 })(typeof window !== 'undefined' ? window : globalThis);
