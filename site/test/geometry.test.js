@@ -1,7 +1,7 @@
 // run: node --test test/
 const test = require('node:test');
 const assert = require('node:assert');
-const { PIPE, FACE, PLAQUE } = require('../geometry.js');
+const { PIPE } = require('../geometry.js');
 const Flow = require('../flow.js');
 
 // distance from a point in the pipe's plane to the pipe's axis: straight riser, one quarter circle, straight run
@@ -46,18 +46,12 @@ test('beads stay inside the tube all the way up the riser, round the bend and al
   assert.ok(samples > 20 && sawBend, 'bead never went round the bend');
 });
 
-test('the plaque is a small card at the right of the podium front, one margin in from the edge, never centred', () => {
-  assert.ok(PLAQUE.cx > 0, 'plaque is not right of centre');
-  assert.ok(Math.abs(FACE.hx - (PLAQUE.cx + PLAQUE.w / 2) - PLAQUE.margin) < 1e-9, 'right edge is not one margin from the podium edge');
-  assert.ok(PLAQUE.margin >= 0.2 && PLAQUE.w < FACE.hx, 'margin too thin or card too wide');
-  assert.ok(Math.abs(FACE.top - (PLAQUE.cy + PLAQUE.h / 2) - PLAQUE.margin) < 1e-9, 'top edge is not one margin from the cap');
-  const H = FACE.hatch;
-  const overlapsHatch = PLAQUE.cx - PLAQUE.w / 2 < H.x + H.hx && PLAQUE.cy - PLAQUE.h / 2 < H.y + H.hy;
-  assert.ok(!overlapsHatch, 'plaque covers the hatch');
-});
-
-test('the plaque type has three sizes, name largest and accession number smallest, all small beside the card', () => {
-  const T = PLAQUE.type;
-  assert.ok(T.name > T.line && T.line > T.small);
-  assert.ok(T.name <= 0.2 * PLAQUE.h * 1000, 'name type is too large for the card');
+test('the shader and the shared numbers hold no plinth card and no hatch', () => {
+  global.window = { Geometry: require('../geometry.js') };
+  global.document = { createElement: () => ({ getContext: () => ({}) }) };
+  delete require.cache[require.resolve('../scene.js')];
+  require('../scene.js');
+  const src = global.window.Scene.source;
+  assert.deepStrictEqual(Object.keys(require('../geometry.js')), ['PIPE']);
+  assert.doesNotMatch(src, /uHatch|tPlq|\bPLC\b|\bPLH\b/);
 });
