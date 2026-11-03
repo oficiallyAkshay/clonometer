@@ -51,7 +51,7 @@ test('the 14 daily values always add up to the real 14-day figure', () => {
 test('the first paint shows the poster machine with no number on it, and the canvas hides it once on', () => {
   const html = read('index.html'), css = read('style.css'), js = read('site.js');
   const fb = html.slice(html.indexOf('id="fb"'), html.indexOf('</main>'));
-  assert.match(fb, /fbplaque/);
+  assert.doesNotMatch(fb, /fbplaque|fbplinth/);
   assert.match(fb, /id="fbwin"/);
   assert.doesNotMatch(fb, /<span>\d<\/span>|id="fbw"[^>]*>\d/);
   assert.doesNotMatch(css, /(^|\n)\.fb\{display:none\}/);
@@ -62,6 +62,35 @@ test('the first paint shows the poster machine with no number on it, and the can
 
 test('the footer says clones include automated traffic', () => {
   assert.match(read('index.html'), /<footer[\s\S]*Clones include automated traffic\.[\s\S]*<\/footer>/);
+});
+
+test('stars and watchers show only from 10 stars, clones always', () => {
+  assert.strictEqual(Page.showStars({ stars: 9, watchers: 4 }), false);
+  assert.strictEqual(Page.showStars({ stars: 10, watchers: 4 }), true);
+  assert.strictEqual(Page.showStars({}), false);
+  assert.strictEqual(Page.showStars(null), false);
+});
+
+test('the page shows the live badge of this repository, read from its own data file', () => {
+  const html = read('index.html');
+  const img = html.match(/<img class="badge"[^>]*>/);
+  assert.ok(img, 'no badge image');
+  assert.match(img[0], /src="https:\/\/img\.shields\.io\/badge\/dynamic\/json\?url=https:\/\/raw\.githubusercontent\.com\/oficiallyAkshay\/clonometer\/badges\/clones\.json&amp;query=\$\.badge/);
+  assert.match(img[0], /height="20"/);
+});
+
+test('the page has no ledger, no serial plate and no placeholder licence note', () => {
+  const html = read('index.html'), js = read('site.js'), css = read('style.css'), scene = read('scene.js');
+  assert.doesNotMatch(html.slice(html.indexOf('<body>')), /ledger|Ledger/);
+  assert.doesNotMatch(js, /ledger|leaderboard|LICENSE_NAME|placeholder/i);
+  assert.doesNotMatch(css, /\.ledger|\.sheet|\.fbplaque|\.fbplinth/);
+  assert.doesNotMatch(scene, /CLONOMETER|SERIAL|No\. 0001/);
+  assert.throws(() => read('leaderboard.json'), /ENOENT/);
+});
+
+test('the main action reads Open source, MIT, free and stays 44 px tall on small screens', () => {
+  assert.match(read('index.html'), /<a class="repo"[^>]*aria-label="Open source on GitHub"[\s\S]*?<span>Open source, MIT, free<\/span>/);
+  assert.match(read('style.css'), /@media \(max-width:820px\)\{[^@]*\.repo\{min-height:44px\}/);
 });
 
 function fakes() {

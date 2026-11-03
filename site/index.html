@@ -40,7 +40,7 @@
 <div class="stage" id="stage">
   <div class="pin">
     
-    <div class="fb poster" id="fb" aria-hidden="true"><div class="fbrail" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="fbbox"><div class="fbg"><b>14 DAYS</b><span id="fbw"></span></div><div class="fbwin" id="fbwin"></div><div class="fbtube" id="fbtube"></div></div><div class="fbplinth"><div class="fbplaque"><b>clonometer</b><span>In continuous service since day 1</span><i>Acc. no. 0001, 2026</i></div></div></div>
+    <div class="fb poster" id="fb" aria-hidden="true"><div class="fbrail" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="fbbox"><div class="fbg"><b>14 DAYS</b><span id="fbw"></span></div><div class="fbwin" id="fbwin"></div><div class="fbtube" id="fbtube"></div></div></div>
   </div>
 </div>
 </main>
@@ -50,6 +50,7 @@
     <a class="brand" href="#top" aria-label="clonometer"><svg class="mark" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false"><rect width="24" height="24" rx="2" fill="#0f1418"/><g fill="#e9edf0"><rect x="4.6" y="4.5" width="2.6" height="15"/><rect x="8.8" y="4.5" width="2.6" height="15"/><rect x="13" y="4.5" width="2.6" height="15"/><rect x="17.2" y="4.5" width="2.6" height="15"/></g><path d="M2.5 17.8 21.5 6.2" stroke="#c8ff1f" stroke-width="2.6" fill="none"/></svg><span class="wm">clonometer</span></a>
     <p class="sub">GitHub only saves 14 days of clones. clonometer keeps the count forever.</p>
     <p class="tech">GitHub Actions &bull; GitHub API &bull; Python</p>
+    <img class="badge" alt="clones of this repository, last seven days and all time" height="20" src="https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/oficiallyAkshay/clonometer/badges/clones.json&amp;query=$.badge&amp;label=clones&amp;logo=github&amp;logoColor=white">
     <h1 class="sr">Every clone counted. Forever.</h1>
   </div>
   <ul class="stats" id="metrics">
@@ -61,14 +62,10 @@
     <li id="liTotal" hidden tabindex="0" data-tip="Lifetime clones summed across the owner's public repositories that run clonometer"><span class="key"></span><b data-k="totalCounted"></b></li>
     <li id="liRepos" hidden tabindex="0" data-tip="Repositories running clonometer"><span class="key">Used by</span><b data-k="repos"></b></li>
   </ul>
-  <a class="repo" id="lRepo" href="https://github.com/oficiallyAkshay/clonometer"><img src="icons/github.svg" alt="" width="18" height="18"><span>GitHub &bull; Open source</span><svg class="chev" viewBox="0 0 8 12" width="6" height="10" aria-hidden="true" focusable="false"><path d="M1.5 1.5 6 6l-4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a>
+  <a class="repo" id="lRepo" href="https://github.com/oficiallyAkshay/clonometer" aria-label="Open source on GitHub"><img src="icons/github.svg" alt="" width="18" height="18"><span>Open source, MIT, free</span><svg class="chev" viewBox="0 0 8 12" width="6" height="10" aria-hidden="true" focusable="false"><path d="M1.5 1.5 6 6l-4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a>
   <p class="fine">Clones include automated traffic.</p>
   <output class="sr" id="vLife"></output><output class="sr" id="vWin"></output>
 </footer>
-
-<div class="ledger" id="ledger" role="dialog" aria-modal="true" aria-label="Ledger" hidden>
-  <div class="sheet"><button type="button" class="x" id="ledgerX">Close</button><h2>Users</h2><p class="lsub">Clones counted</p><ol id="ledgerList"></ol></div>
-</div>
 
 <p id="live" class="sr" aria-live="polite"></p>
 <script defer src="geometry.js"></script>

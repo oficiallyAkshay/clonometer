@@ -54,16 +54,6 @@ h1{max-width:none}
 .stats li[data-tip]:hover::after,.stats li[data-tip]:focus-visible::after{opacity:1;visibility:visible;transform:none}
 .stats li:nth-last-child(-n+2)[data-tip]::after{left:auto;right:0}
 
-.ledger{position:fixed;inset:0;z-index:20;background:rgba(20,18,14,.5);display:grid;place-items:center;padding:16px}
-.ledger[hidden]{display:none}
-.sheet{position:relative;width:min(520px,100%);max-height:86svh;overflow:auto;background:var(--paper);color:var(--ink);border:1px solid #bdb9ae;border-radius:var(--r);padding:64px 24px 20px;box-shadow:0 30px 60px -24px rgba(0,0,0,.6)}
-.sheet ol{list-style:none;padding:0;display:grid}
-.sheet li{display:grid;grid-template-columns:28px 1fr auto;gap:12px;padding:10px 0;border-bottom:1px solid #bdb9ae;align-items:baseline}
-.sheet li span{font:500 var(--t1)/1 var(--sans);letter-spacing:.06em}
-.sheet li em{font:700 var(--t2)/1.2 var(--sans);font-style:normal;overflow-wrap:anywhere}
-.sheet li b{font:700 var(--t2)/1 var(--sans);font-variant-numeric:tabular-nums}
-.x{position:absolute;top:8px;right:8px;font:500 var(--t1)/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;background:transparent;border:1px solid #8c887e;border-radius:var(--r);padding:12px 12px;cursor:pointer;min-height:44px}
-
 /* fallback, drawn in CSS when WebGL is unavailable */
 .fb{display:block;position:absolute;left:50%;top:44%;width:min(860px,92vw);transform:translate(-50%,-50%)}
 .glon .fb{display:none}
@@ -87,10 +77,7 @@ h1{max-width:none}
 @keyframes fbmove{from{left:-12px}to{left:100%}}
 .fbtube{position:absolute;left:-28px;bottom:10px;width:20px;height:86%;border:2px solid #9b7a3e;background:#d9dfe0;display:flex;flex-direction:column-reverse;align-items:center;gap:1px;overflow:hidden;padding-bottom:2px}
 .fbtube i{display:block;border-radius:50%;background:var(--accent);border:1px solid #3a3f2a;flex:none}
-.fbplinth{height:clamp(40px,8svh,80px);margin:0 4%;background:linear-gradient(#cfcdc7,#b3b0a9)}
-
-.fbplaque{margin:0 auto;position:relative;top:14px;width:min(340px,86%);background:#f2f0e8;border:2px solid #0d0d0f;padding:10px 14px;color:#0d0d0f;display:grid;gap:3px}
-.fbplaque b{font:800 var(--t3)/1.1 var(--sans)}.fbplaque span{font:500 var(--t2)/1.3 var(--sans)}.fbplaque i{font:700 var(--t1)/1.3 var(--sans);font-style:normal;letter-spacing:.06em;text-transform:uppercase}
+.badge{display:block;height:20px;width:auto}
 
 @media (max-width:820px){
   h1{font-size:var(--t3);line-height:1.15}
@@ -98,21 +85,15 @@ h1{max-width:none}
   .intro .txt{display:none}
   .sub{font-size:var(--t1)}
   .bar{flex-wrap:wrap;align-content:center;padding:6px var(--gut);gap:4px 12px}
-  .repo{min-height:40px}
+  .repo{min-height:44px}
   .stats li,.stats a{min-height:28px}
   .stats{gap:2px 16px}
   .stats svg{width:14px;height:14px}
   .fbbox{grid-template-columns:1fr;padding:14px}
-  .fb{top:56%}
+  .fb{top:46%;left:calc(50% + 14px);width:calc(100vw - 72px)}
   .cell .strip span{font-size:var(--t3)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-
-.sheet h2{font:800 var(--t3)/1.1 var(--sans);letter-spacing:-.02em}
-.sheet .lsub{font:500 var(--t1)/1.4 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:#3a3732;margin:2px 0 14px}
-.sheet li{grid-template-columns:28px minmax(0,1.2fr) minmax(40px,1fr) auto}
-.sheet li .meter{display:block;height:10px;background:repeating-linear-gradient(135deg,#bdb9ae 0 2px,transparent 2px 5px);align-self:center}
-.sheet li .meter u{display:block;height:100%;background:var(--ink);text-decoration:none}
 
 /* footer: brand prefix, then key-value stats (key above, value below) */
 .bar .brand{flex:none;gap:8px;margin-right:8px}

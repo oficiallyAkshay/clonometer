@@ -1,7 +1,6 @@
-/* clonometer page: the stream feeds the machine, the bar shows the numbers, the hatch opens the ledger. */
+/* clonometer page: the stream feeds the machine, the bar shows the numbers. */
 (function () {
   'use strict';
-  var LICENSE_NAME = 'MIT';                 // placeholder until the licence is final
   var REPO_SLUG = 'oficiallyAkshay/clonometer';
 
   var $ = function (s) { return document.querySelector(s); };
@@ -11,7 +10,6 @@
   if (reduce) root.classList.add('rm');
   var fmt = function (n) { return Math.round(n).toLocaleString('en-US'); };
 
-  $$('.lic').forEach(function (e) { e.textContent = LICENSE_NAME; });
   $('#lRepo').href = 'https://github.com/' + REPO_SLUG;
 
   /* ---------- the numbers: only what metrics.json says, never changed by the stream ---------- */
@@ -52,7 +50,8 @@
   function putFooter(m) {
     m = m || {};
     function put(k, v, li) { var el = document.querySelector('[data-k="' + k + '"]'); var on = typeof v === 'number' && v > 0; if (on) el.textContent = fmt(v); (li || el.closest('li')).hidden = !on; }
-    ['stars', 'forks', 'watchers'].forEach(function (k) { put(k, m[k]); });
+    var starry = Page.showStars(m);
+    put('stars', starry ? m.stars : null); put('forks', m.forks); put('watchers', starry ? m.watchers : null);
     var c = Page.clonesOf(m) || {}, tc = m.totalCounted || {}, label = Page.totalLabel(m);
     put('clonesLife', c.life); put('clones14', c.last14d);
     put('totalCounted', label ? tc.clones : null);
@@ -61,27 +60,6 @@
     if (tc.repos > 0) $('[data-k="repos"]').textContent += ' repos';
   }
   var metricsP = fetch('metrics.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
-
-  /* ---------- the ledger behind the hatch ---------- */
-  var ledger = $('#ledger'), lastFocus = null;
-  var OWNER = 'oficiallyakshay';
-  function others(d) {            // consumers outside the owner's own repositories, most clones first
-    return ((d && d.repositories) || []).filter(function (r) { return r && typeof r.repo === 'string' && typeof r.clones === 'number' && r.repo.toLowerCase().split('/')[0] !== OWNER; })
-      .sort(function (a, b) { return b.clones - a.clones; });
-  }
-  var leaderP = fetch('leaderboard.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(others).catch(function () { return []; });
-  var ledgerRows = [];
-  function openLedger() {
-    var rows = ledgerRows; if (!rows.length) return;
-    var mx = rows[0].clones || 1;
-    $('#ledgerList').innerHTML = rows.map(function (r, i) { return '<li><span>' + String(i + 1).padStart(2, '0') + '</span><em></em><i class="meter"><u style="width:' + Math.max(2, Math.round(r.clones / mx * 100)) + '%"></u></i><b>' + fmt(r.clones) + '</b></li>'; }).join('');
-    $$('#ledgerList li em').forEach(function (e, i) { e.textContent = rows[i].repo; });
-    lastFocus = document.activeElement; ledger.hidden = false; $('#ledgerX').focus();
-  }
-  function closeLedger() { ledger.hidden = true; if (lastFocus) lastFocus.focus(); }
-  $('#ledgerX').addEventListener('click', closeLedger);
-  ledger.addEventListener('click', function (e) { if (e.target === ledger) closeLedger(); });
-  addEventListener('keydown', function (e) { if (e.key === 'Escape' && !ledger.hidden) closeLedger(); });
 
   /* ---------- self-check: sample the displays every frame, over a run of balls ---------- */
   if (/[?&]selfcheck\b/.test(location.search)) window.__displayCheck = function (nBalls) {
@@ -114,13 +92,12 @@
     document.fonts.load('400 40px "Archivo"'), document.fonts.load('600 40px "Archivo"')
   ]).catch(function () { }) : Promise.resolve();
 
-  Promise.all([fontsReady, metricsP, leaderP]).then(function (r) {
-    ledgerRows = r[2];
+  Promise.all([fontsReady, metricsP]).then(function (r) {
     var c = Page.clonesOf(r[1]); putFooter(r[1]);
     if (c) seedFrom(c);
     var ok = false;
     if (!c || /[?&]nogl\b/.test(location.search)) { noGL(c); return; }   // no real numbers: no machine, so no numbers on it
-    try { scene = window.Scene.create(canvas, { reduce: reduce, replay: !reduce, win: S.win, full: rate * 4, onGate: onGate, onWindow: onWindow, onHatch: openLedger, hatch: ledgerRows.length > 0 }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
+    try { scene = window.Scene.create(canvas, { reduce: reduce, replay: !reduce, win: S.win, full: rate * 4, onGate: onGate, onWindow: onWindow }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
     if (!ok) { noGL(c); return; }
     scene.setDigits(digitsOf(S.life), !reduce);
     scene.seedTube(S.win, reduce ? [{ c: 640, x: -4.38, y: 0.8, z: -1.1 }, { c: 2900, x: -4.38, y: 2.4, z: -1.1 }, { c: 520, x: -4.2, y: 2.0, z: -0.2 }] : []);
