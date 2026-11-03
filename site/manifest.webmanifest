@@ -1,0 +1,13 @@
+{
+  "name": "clonometer",
+  "short_name": "clonometer",
+  "description": "Counts GitHub repository clones past the 14 day limit and keeps the lifetime total.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "browser",
+  "background_color": "#0f1418",
+  "theme_color": "#8a8782",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
