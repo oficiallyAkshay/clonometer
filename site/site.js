@@ -13,14 +13,11 @@
   $('#lRepo').href = 'https://github.com/' + REPO_SLUG;
 
   /* ---------- the numbers: only what metrics.json says, never changed by the stream ---------- */
-  var seed = 11;
-  function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
-  var S = { life: 0, win: [] }, rate = 1;
-  var sum = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); };
-  // c is the clone numbers of the data file; the 14 daily values are a split of the real 14-day figure and add up to it exactly
+  var S = { life: 0, fig: 0 };
+  // c is the clone numbers of the data file; the 14-day figure shows as one number, never split into days
   function seedFrom(c) {
-    S.life = c.life; S.win = Page.windowFrom(c.last14d, rnd); rate = Math.max(1, c.last14d / 14);
-    vLife.textContent = fmt(S.life); vWin.textContent = fmt(sum(S.win));
+    S.life = c.life; S.fig = c.last14d;
+    vLife.textContent = fmt(S.life); vWin.textContent = fmt(S.fig);
   }
   function digitsOf(n) { var s = String(n); while (s.length < 7) s = '0' + s; return s.slice(-7).split('').map(Number); }
 
@@ -28,7 +25,7 @@
   var vLife = $('#vLife'), vWin = $('#vWin');
   var scene = null;
   function onGate(c, on) { if (on) ball.gated.push(c); }
-  function onWindow(total, cs, ev) { if (ev && ev.kind === 'land') ball.landed.push(ev.bead); if (ev && ev.kind === 'expire') ball.left.push(ev.bead); vWin.textContent = fmt(total); }
+  function onWindow(total, cs, ev) { if (ev && ev.kind === 'land') ball.landed.push(ev.bead); if (ev && ev.kind === 'expire') ball.left.push(ev.bead); }
 
   /* ---------- CSS fallback: a simple version of the stream ---------- */
   // still: the real figures, nothing moves; without the data file (c is null) the poster carries no digits
@@ -41,8 +38,8 @@
       else html += '<div class="cell"><div class="strip">' + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (d) { return '<span>' + d + '</span>'; }).join('') + '</div></div>';
     });
     $('#fbwin').innerHTML = html;
-    $('#fbtube').innerHTML = S.win.map(function (n) { var d = 8 + 14 * Math.sqrt(Math.min(1, n / 2600)); return '<i style="width:' + d + 'px;height:' + d + 'px"></i>'; }).join('');
-    $('#fbw').textContent = fmt(sum(S.win));
+    $('#fbtube').innerHTML = Page.decor.map(function () { return '<i style="width:15px;height:15px"></i>'; }).join('');
+    $('#fbw').textContent = fmt(S.fig);
     var ds = digitsOf(S.life); $$('#fbwin .strip').forEach(function (s, i) { s.style.transform = 'translateY(' + (-ds[i] * 10) + '%)'; });
   }
 
@@ -97,10 +94,10 @@
     if (c) seedFrom(c);
     var ok = false;
     if (!c || /[?&]nogl\b/.test(location.search)) { noGL(c); return; }   // no real numbers: no machine, so no numbers on it
-    try { scene = window.Scene.create(canvas, { reduce: reduce, replay: !reduce, win: S.win, full: rate * 4, onGate: onGate, onWindow: onWindow }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
+    try { scene = window.Scene.create(canvas, { reduce: reduce, replay: !reduce, figure: S.fig, full: 2, onGate: onGate, onWindow: onWindow }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
     if (!ok) { noGL(c); return; }
     scene.setDigits(digitsOf(S.life), !reduce);
-    scene.seedTube(S.win, reduce ? [{ c: 640, x: -4.38, y: 0.8, z: -1.1 }, { c: 2900, x: -4.38, y: 2.4, z: -1.1 }, { c: 520, x: -4.2, y: 2.0, z: -0.2 }] : []);
+    scene.seedTube(Page.decor, reduce ? [{ c: 2, x: -4.38, y: 0.8, z: -1.1 }, { c: 2, x: -4.38, y: 2.4, z: -1.1 }, { c: 2, x: -4.2, y: 2.0, z: -0.2 }] : []);
     scene.start();
     requestAnimationFrame(function () { requestAnimationFrame(function () { canvas.classList.add('on'); root.classList.add('glon'); }); });
     addEventListener('resize', function () { scene.resize(); });
