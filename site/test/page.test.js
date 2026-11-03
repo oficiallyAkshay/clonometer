@@ -20,12 +20,15 @@ test('the page holds no sample numbers to fall back on', () => {
   assert.doesNotMatch(read('site.js'), /FALLBACK|1200|\b168\b/);
 });
 
-test('the cross-repository total is labelled as globally tracked clones', () => {
-  assert.strictEqual(Page.totalLabel({ totalCounted: { clones: 18304, repos: 8 } }), 'Globally tracked clones');
+test('the cross-repository total and the repository count say they are the owner\'s own repositories', () => {
+  assert.strictEqual(Page.totalLabel({ totalCounted: { clones: 18304, repos: 8 } }), 'Clones of the owner\'s own repositories');
   assert.strictEqual(Page.totalLabel({}), null);
   assert.strictEqual(Page.totalLabel({ totalCounted: { repos: 0 } }), null);
-  assert.match(read('index.html'), /id="liTotal"/);
-  assert.doesNotMatch(read('index.html'), /Tracked globally|Counted across all repos/);
+  const html = read('index.html');
+  assert.match(html, /id="liTotal"/);
+  assert.match(html, /<li id="liRepos"[^\n]*<span class="key">Owner's own repositories<\/span>/);
+  assert.doesNotMatch(html, /globally|used by|Tracked globally|Counted across all repos/i);
+  assert.doesNotMatch(read('page.js').replace(/\/\/.*/g, ''), /globally|used by/i);
 });
 
 
@@ -60,8 +63,9 @@ test('the first paint shows the poster machine with no number on it, and the can
   assert.match(js, /classList\.remove\('glon'\)/);
 });
 
-test('the footer says clones include automated traffic', () => {
-  assert.match(read('index.html'), /<footer[\s\S]*Clones include automated traffic\.[\s\S]*<\/footer>/);
+test('the note that clones include automated traffic sits inside the clone total item', () => {
+  assert.match(read('index.html'), /<li id="liTotal"[^\n]*<\/b><small>Clones include automated traffic\.<\/small><\/li>/);
+  assert.strictEqual(read('index.html').split('Clones include automated traffic.').length, 2);
 });
 
 test('stars and watchers show only from 10 stars, clones always', () => {

@@ -19,13 +19,13 @@
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="clonometer, a GitHub clone counter and traffic history tool: 18,304 globally tracked clones">
+<meta property="og:image:alt" content="clonometer, a GitHub clone counter and traffic history tool: 18,304 clones of the owner's own repositories">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="clonometer">
 <meta name="twitter:description" content="clonometer is a free open source GitHub Action that counts repository clones past GitHub's 14 day traffic limit. It keeps a lifetime clone count and view count in a ledger on your own repository, writes a numbers file for README badges, and works with private repositories through a gist. For maintainers who want GitHub traffic history and clone statistics that last.">
 <meta name="twitter:url" content="https://oficiallyakshay.github.io/clonometer/">
 <meta name="twitter:image" content="https://oficiallyakshay.github.io/clonometer/social-preview.png">
-<meta name="twitter:image:alt" content="clonometer, a GitHub clone counter and traffic history tool: 18,304 globally tracked clones">
+<meta name="twitter:image:alt" content="clonometer, a GitHub clone counter and traffic history tool: 18,304 clones of the owner's own repositories">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"clonometer","url":"https://oficiallyakshay.github.io/clonometer/","description":"clonometer is a free open source GitHub Action that counts repository clones past GitHub's 14 day traffic limit. It keeps a lifetime clone count and view count in a ledger on your own repository, writes a numbers file for README badges, and works with private repositories through a gist. For maintainers who want GitHub traffic history and clone statistics that last.","inLanguage":"en","dateModified":"2026-11-02"},{"@type":"SoftwareSourceCode","name":"clonometer","description":"clonometer is a free open source GitHub Action that counts repository clones past GitHub's 14 day traffic limit. It keeps a lifetime clone count and view count in a ledger on your own repository, writes a numbers file for README badges, and works with private repositories through a gist. For maintainers who want GitHub traffic history and clone statistics that last.","url":"https://oficiallyakshay.github.io/clonometer/","codeRepository":"https://github.com/oficiallyAkshay/clonometer","programmingLanguage":"Python","license":"https://opensource.org/licenses/MIT","author":{"@type":"Person","name":"oficiallyAkshay","url":"https://github.com/oficiallyAkshay"},"sameAs":["https://github.com/oficiallyAkshay/clonometer"],"dateModified":"2026-11-02","keywords":["github clone counter","github clone count badge","github traffic history","github traffic api 14 days","lifetime clone count","repository clone statistics","github action clone tracker","github views counter","readme badge clones","private repository clone count","open source github action","track github clones"]}]}</script>
 <link rel="icon"href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctitle%3Eclonometer%3C/title%3E%3Crect width='24' height='24' rx='2' fill='%230f1418'/%3E%3Cg fill='%23e9edf0'%3E%3Crect x='4.6' y='4.5' width='2.6' height='15'/%3E%3Crect x='8.8' y='4.5' width='2.6' height='15'/%3E%3Crect x='13' y='4.5' width='2.6' height='15'/%3E%3Crect x='17.2' y='4.5' width='2.6' height='15'/%3E%3C/g%3E%3Cpath d='M2.5 17.8 21.5 6.2' stroke='%23c8ff1f' stroke-width='2.6' fill='none'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
@@ -60,11 +60,10 @@
     <li hidden tabindex="0" data-tip="People following activity on the repository"><span class="key"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="8" cy="4.6" r="3"/><path d="M2 14.5c0-3 2.7-5 6-5s6 2 6 5z"/></svg>Watchers</span><b data-k="watchers"></b></li>
     <li id="liClones" hidden tabindex="0" data-tip="Lifetime clones clonometer has kept for this repository"><span class="key">Clones, all time</span><b data-k="clonesLife"></b></li>
     <li id="liClones14" hidden tabindex="0" data-tip="Clones GitHub still reports, from the last 14 days"><span class="key">Clones, last 14 days</span><b data-k="clones14"></b></li>
-    <li id="liTotal" hidden tabindex="0" data-tip="Lifetime clones summed across the owner's public repositories that run clonometer"><span class="key"></span><b data-k="totalCounted"></b></li>
-    <li id="liRepos" hidden tabindex="0" data-tip="Repositories running clonometer"><span class="key">Used by</span><b data-k="repos"></b></li>
+    <li id="liTotal" hidden tabindex="0" data-tip="Lifetime clones summed across the owner's own public repositories that run clonometer"><span class="key"></span><b data-k="totalCounted"></b><small>Clones include automated traffic.</small></li>
+    <li id="liRepos" hidden tabindex="0" data-tip="The owner's own public repositories that run clonometer"><span class="key">Owner's own repositories</span><b data-k="repos"></b></li>
   </ul>
   <a class="repo" id="lRepo" href="https://github.com/oficiallyAkshay/clonometer" aria-label="Open source on GitHub"><img src="icons/github.svg" alt="" width="18" height="18"><span>Open source, MIT, free</span><svg class="chev" viewBox="0 0 8 12" width="6" height="10" aria-hidden="true" focusable="false"><path d="M1.5 1.5 6 6l-4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a>
-  <p class="fine">Clones include automated traffic.</p>
   <output class="sr" id="vLife"></output><output class="sr" id="vWin"></output>
 </footer>
 

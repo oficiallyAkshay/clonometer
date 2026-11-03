@@ -10,10 +10,10 @@
   }
   // stars and watchers show from 10 stars; before that the footer shows clones only
   function showStars(m) { return !!m && whole(m.stars) && m.stars >= 10; }
-  // the label of the cross-repository total: it is the sum of the owner's own repositories
+  // the label of the cross-repository total: it is the sum of the owner's own repositories, and the label says so
   function totalLabel(m) {
     var tc = m && m.totalCounted;
-    return tc && whole(tc.repos) && tc.repos > 0 ? 'Globally tracked clones' : null;
+    return tc && whole(tc.repos) && tc.repos > 0 ? 'Clones of the owner\'s own repositories' : null;
   }
 
   // 14 daily values with realistic variation that sum exactly to the real 14-day figure
