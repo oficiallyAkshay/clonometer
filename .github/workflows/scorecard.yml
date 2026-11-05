@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
   schedule:
-    # Weekly, off the dogfood workflow's own schedule (17 3 * * *) and the
+    # Weekly, off the dogfood workflow's hourly tick (minute 17) and the
     # codeql schedule so none of the three compete for a runner minute.
     - cron: "38 5 * * 3"
 

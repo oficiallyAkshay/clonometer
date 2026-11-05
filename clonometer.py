@@ -34,6 +34,11 @@ Every step is its own small function, and nothing is written until every
 requested metric has passed the guard; the publish step that copies these
 files onto the branch never runs after a failed write. A single helper wraps
 the one network call every other function needs, so tests can fake it once.
+
+``--due`` is the schedule gate the action runs before anything else: a
+consumer workflow ticks hourly, and the gate reads only the clones ledger's
+``last_run`` to say whether this tick is a run slot still to do, so a tick
+that is not ends in seconds without fetching or counting anything.
 """
 
 from __future__ import annotations
@@ -78,6 +83,20 @@ THOUSAND = 1_000
 # A gist id is hexadecimal; GitHub's are 32 characters, but this allows some room.
 GIST_ID_MIN_LENGTH = 20
 GIST_ID_MAX_LENGTH = 40
+
+# How many runs a day the schedule gate lets through, and its sane range: a
+# consumer workflow ticks hourly, so more than 24 slots could never all run.
+DEFAULT_RUNS_PER_DAY = 2
+MIN_RUNS_PER_DAY = 1
+MAX_RUNS_PER_DAY = 24
+HOURS_PER_DAY = 24
+# The UTC hour of the day's first slot. Three hours past midnight gives
+# GitHub time to publish the previous UTC day, and with one run a day it is
+# the 03:17 the single daily schedule always used.
+FIRST_SLOT_HOUR = 3
+# The ledger key holding when the last run that wrote the ledger counted,
+# the memory the gate reads to tell a run slot that is done from one that is due.
+LAST_RUN_KEY = "last_run"
 
 
 class ClonometerError(Exception):
@@ -190,6 +209,11 @@ def today_utc() -> str:
     whatever day the suite happens to run on.
     """
     return datetime.now(UTC).date().isoformat()
+
+
+def now_utc() -> datetime:
+    """The current moment in UTC, its own function for the same reason as ``today_utc``."""
+    return datetime.now(UTC)
 
 
 def fetch_traffic(
@@ -552,6 +576,118 @@ def publish_gist(api_root: str, gist_id: str, token: str, files: dict[str, str])
         ) from error
 
 
+def runs_per_day(value: str) -> tuple[int, str]:
+    """The runs-per-day setting as a usable count, and a note when it was not usable as given.
+
+    Empty means unset, which is the default. Anything that is not a whole
+    number falls back to the default, and a whole number outside 1 to 24 is
+    clamped into it, so a typo in a repository variable never stops the count.
+    """
+    text = value.strip()
+    if not text:
+        return DEFAULT_RUNS_PER_DAY, ""
+    try:
+        runs = int(text)
+    except ValueError:
+        return DEFAULT_RUNS_PER_DAY, (
+            f"runs per day {text!r} is not a whole number; using {DEFAULT_RUNS_PER_DAY}"
+        )
+    clamped = min(max(runs, MIN_RUNS_PER_DAY), MAX_RUNS_PER_DAY)
+    if clamped != runs:
+        return clamped, (
+            f"runs per day {runs} is outside {MIN_RUNS_PER_DAY} to {MAX_RUNS_PER_DAY}; "
+            f"using {clamped}"
+        )
+    return runs, ""
+
+
+def slot_hours(runs: int) -> list[int]:
+    """The UTC hours a run slot starts at, spread evenly across the day.
+
+    Two runs give 03:00 and 15:00. A count that does not divide 24 rounds
+    each slot down to a whole hour, so five runs are four or five hours apart.
+    """
+    return sorted(
+        (FIRST_SLOT_HOUR + i * HOURS_PER_DAY // runs) % HOURS_PER_DAY for i in range(runs)
+    )
+
+
+def latest_slot(now: datetime, runs: int) -> datetime:
+    """The start of the newest run slot at or before ``now``."""
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    starts = [
+        midnight + timedelta(days=offset, hours=hour)
+        for offset in (-1, 0)
+        for hour in slot_hours(runs)
+    ]
+    return max(start for start in starts if start <= now)
+
+
+def last_run(ledger: dict) -> datetime | None:
+    """When the run that wrote this ledger counted, or None when it does not say."""
+    value = ledger.get(LAST_RUN_KEY)
+    try:
+        moment = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        return None
+    return moment
+
+
+def due(api_root: str, repo: str, branch: str, token: str, runs: int, now: datetime) -> str:
+    """One line saying whether this schedule tick runs the count, and why.
+
+    A tick runs when no run has written the ledger since the newest slot
+    started. The tick inside a slot's own hour is the slot; any later tick
+    that still finds it undone is catching up after GitHub delayed or
+    skipped the slot's tick, so a missed slot waits at most one more tick.
+    A ledger that cannot be read, or that has never recorded a run, runs the
+    count too, so the count step reports any real problem in its own words.
+    The line starts with "due" or "skip".
+    """
+    slot = latest_slot(now, runs)
+    label = f"the {slot:%H:%M} UTC slot"
+    try:
+        ledger = read_ledger(
+            api_root,
+            repo,
+            branch,
+            token,
+            f"{DEFAULT_METRICS}-ledger.json",
+            now.date().isoformat(),
+            allow_restart=True,
+        )
+    except ClonometerError as error:
+        return f"due: the ledger could not be read ({error}), so this tick counts"
+    previous = last_run(ledger)
+    if previous is None:
+        return f"due: the ledger records no run yet, so {label} counts now"
+    if previous >= slot:
+        return f"skip: {label} already ran at {previous:%Y-%m-%d %H:%M} UTC"
+    if now - slot < timedelta(hours=1):
+        return f"due: this tick is {label}"
+    return f"due: catching up on {label}; the last run was at {previous:%Y-%m-%d %H:%M} UTC"
+
+
+def stale_note(metric: str, rows: list[dict], today: str) -> str:
+    """A line when the sample's newest day is older than yesterday, else empty.
+
+    GitHub's newest traffic row is the previous UTC day once it has
+    published it. An older newest row means it has not yet, or that day had
+    no traffic at all; either way the next run slot asks again.
+    """
+    yesterday = (date.fromisoformat(today) - timedelta(days=1)).isoformat()
+    newest = max((str(row.get("timestamp", ""))[:10] for row in rows), default="")
+    if newest >= yesterday:
+        return ""
+    shown = newest or "none"
+    return (
+        f"{metric}: the newest traffic row is {shown}, older than {yesterday}; GitHub has "
+        "not published that day yet or it had no traffic, and the next run slot asks again"
+    )
+
+
 def parse_metrics(value: str) -> list[str]:
     """The metric list for --metrics, which accepts exactly two spellings."""
     if value == "clones":
@@ -600,7 +736,29 @@ def _build_parser() -> argparse.ArgumentParser:
             "deleted the branch, then turn it back off"
         ),
     )
+    parser.add_argument(
+        "--due",
+        metavar="RUNS",
+        default=None,
+        help=(
+            "print one line saying whether a schedule tick runs the count at RUNS runs a "
+            "day (1 to 24, default 2 when empty), and change nothing"
+        ),
+    )
     return parser
+
+
+def _gate(args: argparse.Namespace) -> str:
+    """The --due decision line, which never fails: a problem it meets means run the count."""
+    runs, note = runs_per_day(args.due)
+    if note:
+        print(note, file=sys.stderr)
+    try:
+        token, _ = _resolve_token()
+        api_root = check_api_root(os.environ.get(API_ROOT_ENV, DEFAULT_API_ROOT))
+    except ClonometerError as error:
+        return f"due: {error}, so this tick counts and the count step reports it"
+    return due(api_root, args.repo, args.branch, token, runs, now_utc())
 
 
 def _compute(
@@ -609,8 +767,12 @@ def _compute(
     api_root: str,
     today: str,
     token_source: str = TOKEN_ENV,
-) -> list[tuple[dict, dict]]:
-    """Fetch, merge and total every requested metric before anything is written."""
+) -> tuple[list[tuple[dict, dict]], list[str]]:
+    """Fetch, merge and total every requested metric before anything is written.
+
+    Also returns the stale-row notes, which ``main`` prints only once the
+    run has succeeded, so a refused run still ends in its one error line.
+    """
     owner, _, name = args.repo.partition("/")
     if not owner or not name or "/" in name or any(c.isspace() for c in args.repo):
         raise ClonometerError(f"the repository must be given as owner/name, got {args.repo!r}")
@@ -619,6 +781,7 @@ def _compute(
             f"--gist must be a hexadecimal id 20 to 40 characters long, got {args.gist!r}",
         )
     results: list[tuple[dict, dict]] = []
+    notes: list[str] = []
     for metric in parse_metrics(args.metrics):
         traffic = fetch_traffic(api_root, args.repo, token, metric, token_source)
         ledger_file = f"{metric}-ledger.json"
@@ -632,12 +795,16 @@ def _compute(
             allow_restart=args.allow_restart,
         )
         old_total = lifetime(previous)
-        merged = merge(previous, traffic.get(metric) or [])
+        rows = traffic.get(metric) or []
+        notes.append(stale_note(metric, rows, today))
+        merged = merge(previous, rows)
         # The ledger follows the repository it was read for, so a rename does
         # not leave it describing the old name forever; and since is a floor
         # on the days it holds, which the first sample can push back 13 days.
         merged["repo"] = args.repo
         merged["since"] = min([str(merged.get("since", today)), *merged["days"]])
+        # What the schedule gate reads to know this run slot is done.
+        merged[LAST_RUN_KEY] = now_utc().strftime("%Y-%m-%dT%H:%M:%SZ")
         new_total = lifetime(merged)
         guard(new_total, old_total)
         window_count = _count(traffic.get("count", 0), "count")
@@ -654,7 +821,7 @@ def _compute(
             last7=recent(merged, today, 7),
         )
         results.append((numbers_doc, merged))
-    return results
+    return results, [note for note in notes if note]
 
 
 def _resolve_token() -> tuple[str, str]:
@@ -672,10 +839,13 @@ def _resolve_token() -> tuple[str, str]:
 def main(argv: list[str] | None = None) -> int:
     """Parse argv, fetch and total every requested metric, and print or write the result."""
     args = _build_parser().parse_args(argv)
+    if args.due is not None:
+        print(_gate(args))
+        return 0
     try:
         token, token_source = _resolve_token()
         api_root = check_api_root(os.environ.get(API_ROOT_ENV, DEFAULT_API_ROOT))
-        results = _compute(args, token, api_root, today_utc(), token_source)
+        results, notes = _compute(args, token, api_root, today_utc(), token_source)
         if args.write:
             out_dir = Path(args.write)
             gist_files: dict[str, str] = {}
@@ -694,6 +864,8 @@ def main(argv: list[str] | None = None) -> int:
         print(str(error), file=sys.stderr)
         return 1
 
+    for note in notes:
+        print(note)
     if not args.write:
         for doc, _ in results:
             print(

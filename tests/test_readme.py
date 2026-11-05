@@ -133,7 +133,7 @@ def test_the_contributing_workflow_snippet_matches_the_consumer_workflow_file() 
     yaml_block_match = re.search(r"```yaml\n(.*?)```", text, re.DOTALL)
     assert yaml_block_match, "CONTRIBUTING has no fenced yaml workflow block"
     yaml_block = yaml_block_match.group(1)
-    assert yaml_block.count("\n") < 12, "the workflow snippet should stay under 12 lines"
+    assert yaml_block.count("\n") < 14, "the workflow snippet should stay under 14 lines"
 
     contributing_uses = re.search(r"uses:\s*(\S+)", yaml_block)
     template_uses = re.search(r"uses:\s*(\S+)", template_text)

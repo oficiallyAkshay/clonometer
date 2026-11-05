@@ -48,10 +48,53 @@ inputs:
       unnoticed.
     required: false
     default: "false"
+  runs-per-day:
+    description: >-
+      How many times a day a scheduled run counts, 1 to 24, spread evenly
+      across the UTC day from 03:00. Meant for a workflow that ticks hourly
+      and passes a repository variable here, so the rate changes in the
+      repository's settings without editing the workflow. Empty means 2; a
+      value that is not a whole number means 2; a number outside 1 to 24 is
+      clamped into it. A run started any other way than the schedule always
+      counts.
+    required: false
+    default: "2"
 
 runs:
   using: composite
   steps:
+    # An hourly schedule tick that is not a run slot must stay a few seconds
+    # long and must not clone this repository, so this step decides before
+    # the fetch step runs. It reads the script from the copy the runner
+    # downloaded for the action, the same commit the fetch would check out,
+    # which GitHub does not count as a clone. One request: the clones ledger,
+    # for when the last run counted. Any problem it meets lets the tick run,
+    # so the count step reports it in its own words.
+    - name: gate
+      id: gate
+      shell: bash
+      env:
+        CLONOMETER_TOKEN: ${{ inputs.token }}
+        CLONOMETER_BRANCH: ${{ inputs.branch }}
+        CLONOMETER_RUNS_PER_DAY: ${{ inputs['runs-per-day'] }}
+        CLONOMETER_EVENT: ${{ github.event_name }}
+      run: |
+        echo "::add-mask::${CLONOMETER_TOKEN}"
+        set -euo pipefail
+        if [ "${CLONOMETER_EVENT:-}" != "schedule" ]; then
+          echo "due: a ${CLONOMETER_EVENT:-manual} run always counts"
+          echo "due=true" >> "${GITHUB_OUTPUT}"
+          exit 0
+        fi
+        decision="$(python3 "${GITHUB_ACTION_PATH}/clonometer.py" "${GITHUB_REPOSITORY}" \
+          --due "${CLONOMETER_RUNS_PER_DAY:-}" --branch "${CLONOMETER_BRANCH}" \
+          || echo "due: the gate could not decide, so this tick counts")"
+        echo "${decision}"
+        case "${decision}" in
+          skip:*) echo "due=false" >> "${GITHUB_OUTPUT}" ;;
+          *) echo "due=true" >> "${GITHUB_OUTPUT}" ;;
+        esac
+
     # A runner downloads a `uses:` action as a tarball, which GitHub's
     # traffic counts never see. Fetching this repository with git at the
     # commit the consumer pinned makes every run of the action a clone of
@@ -64,6 +107,7 @@ runs:
     # through env. No prompt: a fetch that would ask for credentials is a
     # misconfiguration and must fail, never hang the runner.
     - name: fetch
+      if: steps.gate.outputs.due == 'true'
       shell: bash
       env:
         CLONOMETER_ACTION_REPOSITORY: ${{ github.action_repository }}
@@ -98,6 +142,7 @@ runs:
         echo "fetched ${CLONOMETER_ACTION_REPOSITORY} at ${CLONOMETER_ACTION_REF}"
 
     - name: count
+      if: steps.gate.outputs.due == 'true'
       shell: bash
       env:
         CLONOMETER_TOKEN: ${{ inputs.token }}
@@ -180,6 +225,7 @@ runs:
         fi
 
     - name: publish
+      if: steps.gate.outputs.due == 'true'
       shell: bash
       env:
         CLONOMETER_TOKEN: ${{ inputs.token }}

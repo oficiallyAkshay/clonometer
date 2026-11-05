@@ -3,7 +3,9 @@
 name: clonometer
 
 on:
-  schedule: [{cron: "17 8 * * *"}]
+  # Hourly ticks; the action counts only on its run slots, as many a day as
+  # the CLONOMETER_RUNS_PER_DAY repository variable says, 2 when it is unset.
+  schedule: [{cron: "17 * * * *"}]
   workflow_dispatch:
 
 permissions: {}
@@ -32,3 +34,4 @@ jobs:
           # sit.
           token: ${{ secrets.TRAFFIC_TOKEN }}
           metrics: clones,views
+          runs-per-day: ${{ vars.CLONOMETER_RUNS_PER_DAY }}
