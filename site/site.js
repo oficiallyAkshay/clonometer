@@ -1,4 +1,4 @@
-/* clonometer page: the stream feeds the machine, the bar shows the numbers. */
+/* clonometer page: the machine counts up on its own, the bar shows the numbers. */
 (function () {
   'use strict';
   var REPO_SLUG = 'oficiallyAkshay/clonometer';
@@ -12,36 +12,19 @@
 
   $('#lRepo').href = 'https://github.com/' + REPO_SLUG;
 
-  /* ---------- the numbers: only what metrics.json says, never changed by the stream ---------- */
-  var S = { life: 0, fig: 0 };
-  // c is the clone numbers of the data file; the 14-day figure shows as one number, never split into days
-  function seedFrom(c) {
-    S.life = c.life; S.fig = c.last14d;
-    vLife.textContent = fmt(S.life); vWin.textContent = fmt(S.fig);
-  }
+  /* ---------- the machine's numbers: made up, never the real clone counts; each ball that lands moves them ---------- */
+  var next = Page.series(11);
+  var S = { life: Page.machineCount(Date.now()), win: [], fig: 0 };
+  for (var i = 0; i < 14; i++) S.win.push(next());
+  S.fig = S.win.reduce(function (a, b) { return a + b; }, 0);
   function digitsOf(n) { var s = String(n); while (s.length < 7) s = '0' + s; return s.slice(-7).split('').map(Number); }
+  function show() { vLife.textContent = fmt(S.life); vWin.textContent = fmt(S.fig); }
 
   var ball = { gated: [], landed: [], left: [] };
   var vLife = $('#vLife'), vWin = $('#vWin');
   var scene = null;
-  function onGate(c, on) { if (on) ball.gated.push(c); }
-  function onWindow(total, cs, ev) { if (ev && ev.kind === 'land') ball.landed.push(ev.bead); if (ev && ev.kind === 'expire') ball.left.push(ev.bead); }
-
-  /* ---------- CSS fallback: a simple version of the stream ---------- */
-  // still: the real figures, nothing moves; without the data file (c is null) the poster carries no digits
-  // the poster shell is in the page from the first paint; this fills in the digits
-  function buildFallback(c) {
-    if (!c) return;
-    var html = '';
-    ['d', 's', 'd', 'd', 'd', 's', 'd', 'd', 'd'].forEach(function (k) {
-      if (k === 's') html += '<div class="sepc">,</div>';
-      else html += '<div class="cell"><div class="strip">' + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (d) { return '<span>' + d + '</span>'; }).join('') + '</div></div>';
-    });
-    $('#fbwin').innerHTML = html;
-    $('#fbtube').innerHTML = Page.decor.map(function () { return '<i style="width:15px;height:15px"></i>'; }).join('');
-    $('#fbw').textContent = fmt(S.fig);
-    var ds = digitsOf(S.life); $$('#fbwin .strip').forEach(function (s, i) { s.style.transform = 'translateY(' + (-ds[i] * 10) + '%)'; });
-  }
+  function onGate(c, on) { if (!on) return; ball.gated.push(c); S.life += c; show(); if (scene) scene.rollDigits(digitsOf(S.life)); }
+  function onWindow(total, cs, ev) { if (ev && ev.kind === 'land') ball.landed.push(ev.bead); if (ev && ev.kind === 'expire') ball.left.push(ev.bead); S.fig = total; show(); }
 
   /* ---------- the bar: numbers from metrics.json; a number the file lacks stays hidden ---------- */
   function putFooter(m) {
@@ -49,10 +32,8 @@
     function put(k, v, li) { var el = document.querySelector('[data-k="' + k + '"]'); var on = typeof v === 'number' && v > 0; if (on) el.textContent = fmt(v); (li || el.closest('li')).hidden = !on; }
     var starry = Page.showStars(m);
     put('stars', starry ? m.stars : null); put('forks', m.forks); put('watchers', starry ? m.watchers : null);
-    var c = Page.clonesOf(m) || {}, tc = m.totalCounted || {}, label = Page.totalLabel(m);
-    put('clonesLife', c.life); put('clones14', c.last14d);
+    var tc = m.totalCounted || {}, label = Page.totalLabel(m);
     put('totalCounted', label ? tc.clones : null);
-    if (label) $('#liTotal .key').textContent = label;
     put('repos', tc.repos);
     if (tc.repos > 0) $('[data-k="repos"]').textContent += ' repos';
   }
@@ -80,28 +61,29 @@
 
   /* ---------- scene ---------- */
   var canvas = $('#gl');
-  function noGL(c) { root.classList.add('nogl'); root.classList.remove('glon'); canvas.style.display = 'none'; buildFallback(c); }
+  // the loading panel stays in place; with no 3D support only its words change
+  function noGL() { root.classList.add('nogl'); root.classList.remove('glon'); canvas.style.display = 'none'; $('#ltxt').textContent = 'This view needs WebGL 2'; }
   function barH() { root.style.setProperty('--barH', $('#bar').offsetHeight + 'px'); }
   barH(); addEventListener('resize', barH);
+  show();
 
   var fontsReady = (document.fonts && document.fonts.load) ? Promise.all([
     document.fonts.load('700 100px "Archivo"'), document.fonts.load('800 100px "Archivo"'),
     document.fonts.load('400 40px "Archivo"'), document.fonts.load('600 40px "Archivo"')
   ]).catch(function () { }) : Promise.resolve();
 
-  Promise.all([fontsReady, metricsP]).then(function (r) {
-    var c = Page.clonesOf(r[1]); putFooter(r[1]);
-    if (c) seedFrom(c);
+  metricsP.then(putFooter);
+  fontsReady.then(function () {
     var ok = false;
-    if (!c || /[?&]nogl\b/.test(location.search)) { noGL(c); return; }   // no real numbers: no machine, so no numbers on it
-    try { scene = window.Scene.create(canvas, { reduce: reduce, replay: !reduce, figure: S.fig, full: 2, onGate: onGate, onWindow: onWindow }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
-    if (!ok) { noGL(c); return; }
+    if (/[?&]nogl\b/.test(location.search)) { noGL(); return; }
+    try { scene = window.Scene.create(canvas, { reduce: reduce, replay: !reduce, win: S.win, next: next, full: Page.DAILY * 4, onGate: onGate, onWindow: onWindow }); ok = !!scene; } catch (e) { console.warn(e); scene = null; }
+    if (!ok) { noGL(); return; }
     scene.setDigits(digitsOf(S.life), !reduce);
-    scene.seedTube(Page.decor, reduce ? [{ c: 2, x: -4.38, y: 0.8, z: -1.1 }, { c: 2, x: -4.38, y: 2.4, z: -1.1 }, { c: 2, x: -4.2, y: 2.0, z: -0.2 }] : []);
+    scene.seedTube(S.win, reduce ? [{ c: 90, x: -4.38, y: 0.8, z: -1.1 }, { c: 400, x: -4.38, y: 2.4, z: -1.1 }, { c: 60, x: -4.2, y: 2.0, z: -0.2 }] : []);
     scene.start();
     requestAnimationFrame(function () { requestAnimationFrame(function () { canvas.classList.add('on'); root.classList.add('glon'); }); });
     addEventListener('resize', function () { scene.resize(); });
     if (window.ResizeObserver) new ResizeObserver(function () { barH(); scene.resize(); }).observe($('#bar'));
-    Page.watch(canvas, document, scene, function () { noGL(c); });
+    Page.watch(canvas, document, scene, noGL);
   });
 })();
