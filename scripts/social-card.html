@@ -1,0 +1,20 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>clonometer social preview card</title>
+<!-- The site workflow screenshots this page at 1200x630 into site/social-preview.png,
+     with ?n= set to the global clone count from site/metrics.json. Served from the
+     repository root so the background and the font load by relative path. -->
+<style>
+@font-face{font-family:Archivo;src:url(../site/fonts/archivo-latin-wght-normal.woff2) format("woff2");font-weight:100 900}
+*{margin:0;box-sizing:border-box}
+html,body{width:1200px;height:630px;overflow:hidden}
+body{background:url(../assets/social-preview-bg.png) 0 0/1200px 630px no-repeat;font-family:Archivo,sans-serif;position:relative}
+.n{position:absolute;left:40px;top:519px;font-weight:800;font-size:51px;line-height:1;letter-spacing:-.01em;color:#16181a;font-variant-numeric:tabular-nums}
+.l{position:absolute;left:41px;top:581px;font-weight:600;font-size:12px;letter-spacing:.065em;text-transform:uppercase;color:#16181a}
+</style>
+<div class="n" id="n"></div>
+<div class="l">Globally tracked clones</div>
+<script>
+var n = Number(new URLSearchParams(location.search).get('n'));
+document.getElementById('n').textContent = n > 0 ? Math.round(n).toLocaleString('en-US') : '';
+</script>

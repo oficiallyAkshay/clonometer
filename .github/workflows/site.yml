@@ -1,15 +1,13 @@
 name: site
 
-# Publishes site/ to GitHub Pages whenever a change to it reaches main, and
-# every 6 hours so the numbers on the page stay fresh. Every run rewrites
-# site/metrics.json from GitHub before the upload, so the fresh file goes
-# straight into the Pages artifact and nothing is ever committed or pushed.
+# Publishes site/ to GitHub Pages whenever any pull request merges to main,
+# and every 6 hours, so the numbers on the page and in the social preview
+# stay fresh. Every run rewrites site/metrics.json from GitHub and redraws
+# site/social-preview.png before the upload, so both go straight into the
+# Pages artifact and nothing is ever committed or pushed.
 on:
   push:
     branches: [main]
-    paths:
-      - "site/**"
-      - ".github/workflows/site.yml"
   schedule: [{cron: "23 */6 * * *"}]
   workflow_dispatch:
 
@@ -52,6 +50,25 @@ jobs:
           const day = new Date().toISOString().slice(0, 10);
           if (m.updated !== day || !(m.clones.lifetime > 0) || !(m.totalCounted.clones > 0))
           { console.error('site/metrics.json is stale or empty: ' + JSON.stringify(m)); process.exit(1); }"
+      # Redraws the social preview with the global clone count from the file
+      # just refreshed: Chrome (on the runner image) screenshots
+      # scripts/social-card.html over the committed background. A draw that
+      # fails or is not a 1200x630 PNG leaves the committed image in place,
+      # so the deploy still goes out with fresh numbers on the page.
+      - name: draw the social preview
+        continue-on-error: true
+        run: |
+          n="$(node -p "require('./site/metrics.json').totalCounted.clones")"
+          python3 -m http.server 8123 --bind 127.0.0.1 >/dev/null 2>&1 &
+          server=$!
+          sleep 1
+          google-chrome --headless=new --no-sandbox --hide-scrollbars --window-size=1200,630 \
+            --virtual-time-budget=5000 --screenshot="$RUNNER_TEMP/card.png" \
+            "http://127.0.0.1:8123/scripts/social-card.html?n=$n"
+          kill "$server"
+          file "$RUNNER_TEMP/card.png" | grep -q 'PNG image data, 1200 x 630'
+          mv "$RUNNER_TEMP/card.png" site/social-preview.png
+          echo "social preview drawn with $n clones"
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
