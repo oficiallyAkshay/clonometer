@@ -1,10 +1,10 @@
 """Tests for action.yml, clonometer's composite action.
 
-The static tests parse action.yml with pyyaml and check its shape: the five
-inputs, the composite `using`, and the three bash steps named `fetch`, `count`
-and `publish`.
+The static tests parse action.yml with pyyaml and check its shape: the seven
+inputs, the composite `using`, and the four bash steps named `gate`, `fetch`,
+`count` and `publish`, the last three running only when the gate says due.
 
-The end to end tests run those two steps' `run` bodies exactly as written,
+The end to end tests run those steps' `run` bodies exactly as written,
 straight out of action.yml, as plain bash subprocesses. Nothing here talks to
 the real network: CLONOMETER_API points the count step at a fake GitHub API
 served on 127.0.0.1 by a background thread, and CLONOMETER_REMOTE points the
@@ -67,7 +67,7 @@ def _git(*args: str, **kwargs) -> subprocess.CompletedProcess:
 # --------------------------------------------------------------------------
 
 
-def test_action_yml_parses_and_declares_exactly_the_six_inputs() -> None:
+def test_action_yml_parses_and_declares_exactly_the_seven_inputs() -> None:
     inputs = _load_action()["inputs"]
     assert set(inputs.keys()) == {
         "token",
@@ -76,7 +76,10 @@ def test_action_yml_parses_and_declares_exactly_the_six_inputs() -> None:
         "gist",
         "gist_token",
         "allow-restart",
+        "runs-per-day",
     }
+    assert inputs["runs-per-day"]["required"] is False
+    assert inputs["runs-per-day"]["default"] == "2"
     assert inputs["token"]["required"] is True
     assert "default" not in inputs["token"]
     assert inputs["branch"]["default"] == "badges"
@@ -92,10 +95,23 @@ def test_action_yml_is_a_composite_action() -> None:
     assert _load_action()["runs"]["using"] == "composite"
 
 
-def test_action_yml_has_three_bash_steps_fetch_count_publish() -> None:
+def test_action_yml_has_four_bash_steps_gate_fetch_count_publish() -> None:
     steps = _steps()
-    assert [step["name"] for step in steps] == ["fetch", "count", "publish"]
+    assert [step["name"] for step in steps] == ["gate", "fetch", "count", "publish"]
     assert all(step["shell"] == "bash" for step in steps)
+
+
+def test_the_gate_comes_first_and_every_later_step_waits_on_it() -> None:
+    """A skipped tick must reach neither the fetch, which is a clone, nor the count."""
+    gate, *rest = _steps()
+    assert gate["id"] == "gate"
+    assert "if" not in gate
+    for step in rest:
+        assert step["if"] == "steps.gate.outputs.due == 'true'"
+    assert gate["env"]["CLONOMETER_RUNS_PER_DAY"] == "${{ inputs['runs-per-day'] }}"
+    assert gate["env"]["CLONOMETER_EVENT"] == "${{ github.event_name }}"
+    assert "::add-mask::${CLONOMETER_TOKEN}" in gate["run"]
+    assert "git" not in gate["run"].replace("GITHUB", "")
 
 
 def test_the_fetch_step_reads_the_action_context_through_env_and_uses_no_token() -> None:
@@ -111,14 +127,15 @@ def test_the_fetch_step_reads_the_action_context_through_env_and_uses_no_token()
     assert "--filter=blob:none" in fetch["run"]
 
 
-def _seed_action_repo(tmp_path: Path) -> tuple[Path, str]:
-    """A bare repository standing in for clonometer's own, holding a marker script
-    and a site file the runtime never needs."""
+MARKER_SCRIPT = "import sys; print('ran from the fetched checkout'); sys.exit(0)\n"
+
+
+def _seed_action_repo(tmp_path: Path, script: str = MARKER_SCRIPT) -> tuple[Path, str]:
+    """A bare repository standing in for clonometer's own, holding a script (a
+    marker unless a test asks for another) and a site file the runtime never needs."""
     seed = tmp_path / "seed"
     _git("init", "--quiet", "-b", "main", str(seed), check=True)
-    (seed / "clonometer.py").write_text(
-        "import sys; print('ran from the fetched checkout'); sys.exit(0)\n", encoding="utf-8"
-    )
+    (seed / "clonometer.py").write_text(script, encoding="utf-8")
     (seed / "site").mkdir()
     (seed / "site" / "share.png").write_text("not needed at runtime\n", encoding="utf-8")
     _git("-C", str(seed), "add", "clonometer.py", "site/share.png", check=True)
@@ -306,6 +323,8 @@ class _FakeState:
         # (gist id, Authorization header, decoded JSON body).
         self.gist_status = 200
         self.gist_patches: list[tuple[str, str, dict]] = []
+        # The path of every GET, in order, so a test can count what a step asked.
+        self.gets: list[str] = []
 
     def set_traffic(
         self, metric: str, count: int, uniques: int, rows: list[tuple[str, int, int]]
@@ -328,6 +347,7 @@ def _make_handler(state: _FakeState) -> type[http.server.BaseHTTPRequestHandler]
 
         def do_GET(self) -> None:
             split = urlsplit(self.path)
+            state.gets.append(split.path)
             prefix = f"/repos/{state.repo}"
 
             if split.path.startswith(f"{prefix}/traffic/"):
@@ -983,3 +1003,140 @@ def test_neither_token_leaks_from_a_gist_run(tmp_path: Path, bare_repo: Path, fa
     text = summary.read_text(encoding="utf-8")
     assert f"https://gist.github.com/{GIST_ID}" in text
     assert TOKEN not in text and GIST_TOKEN not in text
+
+
+# --------------------------------------------------------------------------
+# The schedule gate, and the steps it lets run, end to end.
+# --------------------------------------------------------------------------
+
+DUE = "steps.gate.outputs.due == 'true'"
+
+
+def _run_action(env: dict[str, str], cwd: Path, event: str) -> dict[str, object]:
+    """Every step the way a runner would: the gate, then each later step its output allows.
+
+    The one `if:` the action uses is evaluated here from the gate's own
+    GITHUB_OUTPUT file, so a skipped step is a step that never ran at all.
+    """
+    output = cwd / f"gate-output-{event}-{len(list(cwd.glob('gate-output-*')))}"
+    output.write_text("", encoding="utf-8")
+    env = {**env, "GITHUB_OUTPUT": str(output), "CLONOMETER_EVENT": event}
+    ran: dict[str, object] = {}
+    for step in _steps():
+        if step.get("if") == DUE and "due=true" not in output.read_text("utf-8").split():
+            ran[step["name"]] = None
+            continue
+        result = _run_step(step["name"], env, cwd)
+        assert result.returncode == 0, result.stderr
+        ran[step["name"]] = result
+    return ran
+
+
+def _said(step: subprocess.CompletedProcess) -> str:
+    """A step's stdout without the runner command that masks the token."""
+    return "\n".join(line for line in step.stdout.splitlines() if "::add-mask::" not in line)
+
+
+def _consumer_env(tmp_path: Path, bare_repo: Path, fake_github) -> dict[str, str]:
+    """A first run's env as a consumer's would be, with an action repository to fetch
+    that holds the real script, so the count step runs what the fetch checked out."""
+    server, sha = _seed_action_repo(tmp_path, (ROOT / "clonometer.py").read_text("utf-8"))
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    env.update(
+        {
+            "CLONOMETER_ACTION_REPOSITORY": "owner/clonometer",
+            "CLONOMETER_ACTION_REF": sha,
+            "CLONOMETER_SERVER": f"file://{server}",
+            "CLONOMETER_RUNS_PER_DAY": "",
+        }
+    )
+    return env
+
+
+def test_a_scheduled_tick_with_no_ledger_counts_and_a_tick_right_after_skips_without_fetching(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    state, _ = fake_github
+    env = _consumer_env(tmp_path, bare_repo, fake_github)
+    checkout = tmp_path / "runner-temp" / "clonometer-action"
+    first = _run_action(env, tmp_path, "schedule")
+    assert "due: the ledger records no run yet" in _said(first["gate"])
+    assert "fetched owner/clonometer" in first["fetch"].stdout
+    assert first["count"] is not None
+    assert first["publish"] is not None
+    assert _commit_count(bare_repo, "badges") == 1
+    assert "last_run" in json.loads(_show(bare_repo, "badges", "clones-ledger.json"))
+    # A runner starts every job on a clean machine; so does the next tick here.
+    shutil.rmtree(checkout)
+    published = _git(
+        "-C", str(bare_repo), "rev-parse", "badges", capture_output=True, text=True, check=True
+    ).stdout
+
+    # The next tick: the slot that just ran is done, so nothing after the gate runs.
+    state.gets.clear()
+    second = _run_action(env, tmp_path, "schedule")
+    assert _said(second["gate"]).startswith("skip: the ")
+    assert "already ran at" in _said(second["gate"])
+    assert second["fetch"] is None
+    assert second["count"] is None
+    assert second["publish"] is None
+    assert not checkout.exists()
+    assert state.gets == [f"/repos/{REPO}/contents/clones-ledger.json"]
+    assert (
+        _git(
+            "-C", str(bare_repo), "rev-parse", "badges", capture_output=True, text=True, check=True
+        ).stdout
+        == published
+    )
+    assert TOKEN not in _said(second["gate"]) + second["gate"].stderr
+
+
+def test_a_manual_run_always_counts_and_never_asks_the_ledger(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    state, _ = fake_github
+    env = _consumer_env(tmp_path, bare_repo, fake_github)
+    ran = _run_action(env, tmp_path, "workflow_dispatch")
+    assert _said(ran["gate"]).startswith("due: a workflow_dispatch run always counts")
+    assert "fetched owner/clonometer" in ran["fetch"].stdout
+    assert ran["publish"] is not None
+    # The first request is the count step's traffic read; the gate asked nothing.
+    assert state.gets[0] == f"/repos/{REPO}/traffic/clones"
+
+
+def test_the_gate_step_writes_due_or_skip_to_the_step_output(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    output = tmp_path / "output"
+    output.write_text("", encoding="utf-8")
+    env.update(
+        {
+            "GITHUB_OUTPUT": str(output),
+            "CLONOMETER_EVENT": "schedule",
+            "CLONOMETER_RUNS_PER_DAY": "x",
+        }
+    )
+    gate = _run_step("gate", env, tmp_path)
+    assert gate.returncode == 0, gate.stderr
+    assert output.read_text("utf-8") == "due=true\n"
+    assert "not a whole number; using 2" in gate.stderr
+
+
+def test_a_gate_that_cannot_run_the_script_lets_the_tick_count(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    env = _first_run(tmp_path, bare_repo, fake_github)
+    output = tmp_path / "output"
+    output.write_text("", encoding="utf-8")
+    env.update(
+        {
+            "GITHUB_OUTPUT": str(output),
+            "CLONOMETER_EVENT": "schedule",
+            "GITHUB_ACTION_PATH": str(tmp_path / "missing"),
+        }
+    )
+    gate = _run_step("gate", env, tmp_path)
+    assert gate.returncode == 0, gate.stderr
+    assert "due: the gate could not decide" in _said(gate)
+    assert output.read_text("utf-8") == "due=true\n"

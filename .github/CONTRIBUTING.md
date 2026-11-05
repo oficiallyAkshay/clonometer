@@ -43,12 +43,12 @@ pointer back here for the rest.
 
 ## The consumer workflow
 
-What a repository installing clonometer adds, a daily schedule pinned to a commit:
+What a repository installing clonometer adds, an hourly tick pinned to a commit:
 
 ```yaml
 name: clonometer
 on:
-  schedule: [{cron: "17 3 * * *"}]
+  schedule: [{cron: "17 * * * *"}]
   workflow_dispatch:
 permissions: {}
 jobs:
@@ -56,8 +56,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: oficiallyAkshay/clonometer@<sha>   # pin to a commit
-        with: {token: ${{ secrets.TRAFFIC_TOKEN }}}
+        with:
+          token: ${{ secrets.TRAFFIC_TOKEN }}
+          runs-per-day: ${{ vars.CLONOMETER_RUNS_PER_DAY }}
 ```
+
+The tick runs every hour; the action counts only on its run slots and ends
+any other tick in seconds, before it clones anything. Slots are spread evenly
+across the UTC day from 03:00, so the default of two runs counts at 03:17 and
+15:17. To change the rate, set the repository variable
+`CLONOMETER_RUNS_PER_DAY` to a whole number from 1 to 24 under Settings,
+Secrets and variables, Actions, Variables; the next tick uses it, with no
+change to the workflow file. Unset or not a whole number means 2, and a
+number outside 1 to 24 is clamped into it.
+
+A tick also counts when the newest slot has passed with no run recorded in
+the ledger since it started, so a slot GitHub delayed or skipped is caught
+up on the next hourly tick. A manual run always counts. When GitHub's newest
+traffic row is older than the previous UTC day, the run says so in its log
+and the next slot asks again. On a private repository each tick uses at
+least one Actions minute, about 720 a month out of the account's included
+minutes; public repositories run free.
+
+A repository that already runs clonometer holds its own copy of this file,
+so it keeps one run a day at its old schedule until that copy gets the
+hourly tick and the `runs-per-day` line.
 
 | Action input | Default | Meaning |
 | --- | --- | --- |
@@ -66,6 +89,7 @@ jobs:
 | `metrics` | `clones` | `clones` or `clones,views` |
 | `gist` | empty | Gist id to mirror the numbers files into, for a private repository |
 | `gist_token` | empty | Classic token with the gist scope; the `token` input is used when empty |
+| `runs-per-day` | `2` | Scheduled runs that count each day, 1 to 24; pass `${{ vars.CLONOMETER_RUNS_PER_DAY }}` so the repository variable sets it. Empty or not a whole number means 2, outside 1 to 24 is clamped. A run started any other way always counts |
 | `allow-restart` | `false` | For one run only: start a fresh ledger when the storage branch exists but its ledger file is missing, instead of refusing. Set it back to `false` (or remove it) right after; see the storage branch table below for why |
 
 ## The numbers file and the CLI
@@ -105,14 +129,19 @@ https://img.shields.io/badge/dynamic/json?url=https://gist.githubusercontent.com
 ```
 
 ```json
-{"schema": 1, "repo": "owner/name", "since": "2026-09-17", "days": {"2026-09-17": {"count": 12, "uniques": 9}}}
+{"schema": 1, "repo": "owner/name", "since": "2026-09-17", "last_run": "2026-09-18T03:17:42Z", "days": {"2026-09-17": {"count": 12, "uniques": 9}}}
 ```
+
+`last_run` is when the run that wrote the ledger counted, in UTC; the schedule gate reads it to tell a done run slot from a due one.
 
 Merge: each day's fields become the larger of the ledger's value and the new one, no day is ever removed. Guard: a lifetime total below the previous run's is refused and nothing is written.
 
 ```
 clonometer OWNER/NAME [--write DIR] [--branch badges] [--metrics clones|clones,views] [--gist ID] [--allow-restart]
+clonometer OWNER/NAME --due RUNS [--branch badges]
 ```
+
+`--due` prints one line that starts with `due` or `skip` for a schedule tick at RUNS runs a day, reads only the clones ledger, writes nothing and always exits `0`.
 
 | Variable or exit | Meaning |
 | --- | --- |

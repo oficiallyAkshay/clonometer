@@ -6,7 +6,7 @@ library only, no runtime dependencies.
 | Path | What it holds |
 | --- | --- |
 | `clonometer.py` | The whole runtime: fetch, ledger merge, the numbers file, the CLI |
-| `action.yml` | The composite action: three bash steps, fetch, count and publish |
+| `action.yml` | The composite action: four bash steps, gate, fetch, count and publish |
 | `tests/` | pytest, fake HTTP, fake ledger, fake git |
 | `scripts/` | The hero drawing script |
 | `.github/workflows/` | CI gates and the dogfood workflow |

@@ -21,6 +21,7 @@ import json
 import threading
 import urllib.error
 import urllib.request
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self
 
 import pytest
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
 
 REPO = "oficiallyAkshay/clonometer"
 TODAY = "2026-09-17"
+NOW = datetime(2026, 9, 17, 3, 17, 42, tzinfo=UTC)
 
 
 class FakeResponse(io.BytesIO):
@@ -88,6 +90,7 @@ def token_env(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def frozen_today(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(clonometer, "today_utc", lambda: TODAY)
+    monkeypatch.setattr(clonometer, "now_utc", lambda: NOW)
 
 
 def traffic_payload(
@@ -700,12 +703,13 @@ def test_cli_write_mode_writes_exactly_the_expected_files_for_clones_only(
 
     raw_ledger = (out_dir / "clones-ledger.json").read_text(encoding="utf-8")
     assert raw_ledger.endswith("\n")
-    assert list(json.loads(raw_ledger).keys()) == ["days", "repo", "schema", "since"]
+    assert list(json.loads(raw_ledger).keys()) == ["days", "last_run", "repo", "schema", "since"]
     ledger_doc = json.loads(raw_ledger)
     assert ledger_doc == {
         "schema": 1,
         "repo": REPO,
         "since": TODAY,
+        "last_run": "2026-09-17T03:17:42Z",
         "days": {"2026-09-17": {"count": 12, "uniques": 9}},
     }
 
@@ -1391,3 +1395,206 @@ def test_the_guard_and_schema_messages_say_what_to_do(
     )
     assert clonometer.main([REPO]) == 1
     assert "delete it there to start the count again" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------
+# The schedule gate: runs per day, slots, catch-up
+# --------------------------------------------------------------------------
+
+
+def at(hour: int, minute: int = 17, day: int = 17) -> datetime:
+    return datetime(2026, 9, day, hour, minute, tzinfo=UTC)
+
+
+def ran_at(moment: datetime) -> dict:
+    """A clones ledger contents response whose last run counted at ``moment``."""
+    doc = ledger({"2026-09-16": {"count": 3, "uniques": 2}})
+    doc["last_run"] = moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return contents_response(doc)
+
+
+@pytest.mark.parametrize(
+    ("value", "runs"),
+    [("", 2), ("   ", 2), ("1", 1), ("3", 3), (" 4 ", 4), ("24", 24)],
+)
+def test_runs_per_day_reads_a_usable_value_without_a_note(value: str, runs: int) -> None:
+    assert clonometer.runs_per_day(value) == (runs, "")
+
+
+@pytest.mark.parametrize(
+    ("value", "runs", "says"),
+    [
+        ("abc", 2, "not a whole number"),
+        ("2.5", 2, "not a whole number"),
+        ("0", 1, "outside 1 to 24"),
+        ("-3", 1, "outside 1 to 24"),
+        ("25", 24, "outside 1 to 24"),
+        ("1000", 24, "outside 1 to 24"),
+    ],
+)
+def test_runs_per_day_guards_and_clamps_a_bad_value_and_says_so(
+    value: str, runs: int, says: str
+) -> None:
+    got, note = clonometer.runs_per_day(value)
+    assert got == runs
+    assert says in note
+    assert f"using {runs}" in note
+
+
+@pytest.mark.parametrize(
+    ("runs", "hours"),
+    [
+        (1, [3]),
+        (2, [3, 15]),
+        (3, [3, 11, 19]),
+        (4, [3, 9, 15, 21]),
+        (5, [3, 7, 12, 17, 22]),
+        (24, list(range(24))),
+    ],
+)
+def test_slots_spread_evenly_across_the_utc_day_from_three(runs: int, hours: list[int]) -> None:
+    assert clonometer.slot_hours(runs) == hours
+
+
+def test_the_latest_slot_reaches_back_to_yesterday_before_the_first_slot() -> None:
+    assert clonometer.latest_slot(at(2), 2) == at(15, 0, day=16)
+    assert clonometer.latest_slot(at(3, 0), 2) == at(3, 0)
+    assert clonometer.latest_slot(at(14, 59), 2) == at(3, 0)
+    assert clonometer.latest_slot(at(23), 2) == at(15, 0)
+    assert clonometer.latest_slot(at(8), 24) == at(8, 0)
+
+
+@pytest.mark.parametrize("value", [None, "", "yesterday", 17, "2026-09-17T03:17:42"])
+def test_last_run_is_none_when_the_ledger_does_not_say_when_in_utc(value: object) -> None:
+    doc = ledger({})
+    if value is not None:
+        doc["last_run"] = value
+    assert clonometer.last_run(doc) is None
+
+
+def test_last_run_reads_the_utc_moment_the_ledger_records() -> None:
+    doc = ledger({})
+    doc["last_run"] = "2026-09-17T03:17:42Z"
+    assert clonometer.last_run(doc) == NOW
+
+
+def _due(now: datetime, runs: int = 2) -> str:
+    return clonometer.due("https://api.github.com", REPO, "badges", "t", runs, now)
+
+
+def test_a_tick_in_a_slot_hour_with_the_slot_undone_is_due(fake_http) -> None:
+    fake_http.queue(ran_at(at(15, 20, day=16)))
+    assert _due(at(3)) == "due: this tick is the 03:00 UTC slot"
+    # The one request is the clones ledger, never traffic.
+    assert len(fake_http.requests) == 1
+    assert "/contents/clones-ledger.json?ref=badges" in fake_http.requests[0].full_url
+
+
+def test_a_tick_after_the_slot_already_ran_is_skipped(fake_http) -> None:
+    fake_http.queue(ran_at(at(3, 18)))
+    assert _due(at(4)) == "skip: the 03:00 UTC slot already ran at 2026-09-17 03:18 UTC"
+    fake_http.queue(ran_at(at(3, 18)))
+    assert _due(at(14)).startswith("skip:")
+
+
+def test_a_tick_off_the_slot_hour_catches_up_a_slot_github_delayed_or_skipped(fake_http) -> None:
+    fake_http.queue(ran_at(at(15, 20, day=16)))
+    line = _due(at(5))
+    assert line == (
+        "due: catching up on the 03:00 UTC slot; the last run was at 2026-09-16 15:20 UTC"
+    )
+
+
+def test_a_ledger_older_than_a_whole_slot_period_catches_up_on_any_tick(fake_http) -> None:
+    fake_http.queue(ran_at(at(3, 17, day=10)))
+    assert _due(at(9)).startswith("due: catching up on the 03:00 UTC slot")
+
+
+def test_more_runs_a_day_make_more_ticks_due(fake_http) -> None:
+    fake_http.queue(ran_at(at(3, 18)))
+    assert _due(at(9), runs=2).startswith("skip:")
+    fake_http.queue(ran_at(at(3, 18)))
+    assert _due(at(9), runs=4) == "due: this tick is the 09:00 UTC slot"
+
+
+def test_a_first_run_with_no_ledger_is_due(fake_http) -> None:
+    fake_http.queue(http_error(404))
+    assert _due(at(10)) == "due: the ledger records no run yet, so the 03:00 UTC slot counts now"
+    # No second look at the branch: the gate only decides, the count step refuses.
+    assert len(fake_http.requests) == 1
+
+
+def test_a_ledger_that_cannot_be_read_lets_the_tick_count(fake_http) -> None:
+    fake_http.queue(http_error(500))
+    assert _due(at(10)).startswith("due: the ledger could not be read (")
+
+
+def test_cli_due_prints_one_line_writes_nothing_and_exits_zero(
+    fake_http, token_env, monkeypatch: pytest.MonkeyPatch, capsys, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(clonometer, "now_utc", lambda: at(4))
+    monkeypatch.chdir(tmp_path)
+    fake_http.queue(ran_at(at(3, 18)))
+    assert clonometer.main([REPO, "--due", "2"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out.startswith("skip: the 03:00 UTC slot")
+    assert captured.out.count("\n") == 1
+    assert captured.err == ""
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_cli_due_with_a_bad_value_says_so_on_stderr_and_uses_the_fallback(
+    fake_http, token_env, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr(clonometer, "now_utc", lambda: at(9))
+    fake_http.queue(ran_at(at(3, 18)))
+    assert clonometer.main([REPO, "--due", "lots", "--branch", "store"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out.startswith("skip:")
+    assert "not a whole number; using 2" in captured.err
+    assert "ref=store" in fake_http.requests[0].full_url
+
+
+def test_cli_due_without_a_token_lets_the_tick_count(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.delenv(clonometer.TOKEN_ENV, raising=False)
+    monkeypatch.delenv(clonometer.FALLBACK_TOKEN_ENV, raising=False)
+    assert clonometer.main([REPO, "--due", ""]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("due: ")
+    assert "count step reports it" in out
+
+
+# --------------------------------------------------------------------------
+# A newest traffic row older than yesterday is said, not hidden
+# --------------------------------------------------------------------------
+
+
+def test_stale_note_is_empty_when_yesterday_is_the_newest_row() -> None:
+    rows = [{"timestamp": "2026-09-15T00:00:00Z"}, {"timestamp": "2026-09-16T00:00:00Z"}]
+    assert clonometer.stale_note("clones", rows, TODAY) == ""
+    assert clonometer.stale_note("clones", [{"timestamp": "2026-09-17T00:00:00Z"}], TODAY) == ""
+
+
+def test_stale_note_names_the_newest_row_when_github_has_not_published_yesterday() -> None:
+    note = clonometer.stale_note("views", [{"timestamp": "2026-09-15T00:00:00Z"}], TODAY)
+    assert note.startswith("views: the newest traffic row is 2026-09-15, older than 2026-09-16")
+    assert "the next run slot asks again" in note
+    assert "is none, older than" in clonometer.stale_note("clones", [], TODAY)
+
+
+def test_a_run_whose_newest_row_is_stale_says_so_and_still_writes(
+    fake_http, token_env, frozen_today, tmp_path: Path, capsys
+) -> None:
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-14", 4, 2)], count=4),
+        http_error(404),
+        http_error(404),
+    )
+    out_dir = tmp_path / "out"
+    assert clonometer.main([REPO, "--write", str(out_dir)]) == 0
+    out = capsys.readouterr().out
+    assert "clones: the newest traffic row is 2026-09-14, older than 2026-09-16" in out
+    written = json.loads((out_dir / "clones-ledger.json").read_text("utf-8"))
+    assert written["last_run"] == "2026-09-17T03:17:42Z"

@@ -2,9 +2,14 @@
 # with no commit to the repository; any commit, on any branch, resets that
 # clock, so a repository that commits regularly never sees this schedule
 # stop.
+#
+# The schedule ticks every hour and the action counts only on its run slots,
+# twice a day unless the repository variable CLONOMETER_RUNS_PER_DAY says
+# otherwise (1 to 24, set under Settings, Secrets and variables, Actions,
+# Variables). A tick that is not a slot ends in seconds without a clone.
 name: clonometer
 on:
-  schedule: [{cron: "17 3 * * *"}]
+  schedule: [{cron: "17 * * * *"}]
   workflow_dispatch:
 permissions: {}
 concurrency: {group: clonometer}
@@ -15,3 +20,4 @@ jobs:
       - uses: oficiallyAkshay/clonometer@<sha>   # pinned commit
         with:
           token: ${{ secrets.TRAFFIC_TOKEN }}
+          runs-per-day: ${{ vars.CLONOMETER_RUNS_PER_DAY }}

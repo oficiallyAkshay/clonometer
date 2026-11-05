@@ -20,9 +20,9 @@
   <a href="https://www.bestpractices.dev/projects/14705"><img alt="OpenSSF Best Practices, passing" src="https://www.bestpractices.dev/projects/14705/badge"></a>
 </p>
 
-clonometer samples GitHub's clone count every day and keeps a lifetime ledger on a branch of your repository, or mirrored to a gist for a private one. It writes a numbers file that any badge can read.
+clonometer samples GitHub's clone count twice a day and keeps a lifetime ledger on a branch of your repository, or mirrored to a gist for a private one. It writes a numbers file that any badge can read.
 
-Install: store a fine-grained token as `TRAFFIC_TOKEN` and add `oficiallyAkshay/clonometer` as a step in a daily workflow, pinned to a commit.
+Install: store a fine-grained token as `TRAFFIC_TOKEN` and add `oficiallyAkshay/clonometer` as a step in an hourly workflow, pinned to a commit.
 
 ## Features
 
@@ -54,7 +54,7 @@ clonometer needs one fine-grained token scoped to your repository, Administratio
 - ❌ follows a symlink
 - ❌ adds a dependency
 
-By default, clonometer counts clones only; set `metrics` to `clones,views` to add views. The ledger's home branch is `badges` by default; set `branch` to move it. By default, no gist mirror runs; set `gist` to turn it on; a private repository's badge only works through the mirror. Counting starts the day you install it, with up to a day of delay, and counts include bots and CI, this action's own runs included; a scheduled workflow pauses after 60 days without a commit, and a gap past 13 days loses rows.
+By default, clonometer counts clones only; set `metrics` to `clones,views` to add views. The ledger's home branch is `badges` by default; set `branch` to move it. By default, no gist mirror runs; set `gist` to turn it on; a private repository's badge only works through the mirror. By default, clonometer counts twice a day; set the repository variable `CLONOMETER_RUNS_PER_DAY` to any whole number from 1 to 24 to change it, with no change to the workflow, and a slot GitHub delays or skips is caught up on the next hourly tick. Counting starts the day you install it, with up to a day of delay, and counts include bots and CI, this action's own runs included; a scheduled workflow pauses after 60 days without a commit, and a gap past 13 days loses rows.
 
 ## Badges
 

@@ -9,7 +9,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Weekly, off the dogfood workflow's own schedule (17 3 * * *) so the
+    # Weekly, off the dogfood workflow's hourly tick (minute 17) so the
     # two never compete for the same runner minute.
     - cron: "24 4 * * 1"
 
