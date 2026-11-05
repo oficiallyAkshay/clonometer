@@ -1,4 +1,5 @@
-/* Rewrites site/metrics.json from GitHub: run daily by a workflow, or by hand with `node site/refresh-metrics.js`.
+/* Rewrites site/metrics.json from GitHub: .github/workflows/site.yml runs it every 6 hours and on every deploy,
+   then publishes the fresh file to GitHub Pages without committing it. By hand: `node site/refresh-metrics.js`.
    Node built-ins only. GITHUB_TOKEN is optional and goes only to api.github.com. */
 'use strict';
 const OWNER = 'oficiallyAkshay', REPO = 'clonometer';
