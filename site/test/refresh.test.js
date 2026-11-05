@@ -53,3 +53,14 @@ test('fields the script does not read are kept from the file it replaces', async
   assert.deepStrictEqual(m.downloads, { total: 7, last30d: 1 });
   assert.deepStrictEqual((await build(world().get, NOW, {})).downloads, { total: null, last30d: null });
 });
+
+test('the site workflow refreshes the numbers every 6 hours and before every upload to Pages', () => {
+  const yml = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '.github', 'workflows', 'site.yml'), 'utf8');
+  const cron = yml.match(/cron:\s*"([^"]+)"/);
+  assert.ok(cron, 'site.yml has no schedule');
+  assert.strictEqual(cron[1].split(/\s+/)[1], '*/6');
+  assert.match(yml, /workflow_dispatch:/);
+  const refresh = yml.indexOf('run: node site/refresh-metrics.js');
+  assert.ok(refresh > 0, 'site.yml never runs the refresh');
+  assert.ok(refresh < yml.indexOf('upload-pages-artifact'), 'the refresh must run before the Pages upload');
+});

@@ -1,16 +1,21 @@
 name: site
 
-# Publishes site/ to GitHub Pages whenever a change to it reaches main.
+# Publishes site/ to GitHub Pages whenever a change to it reaches main, and
+# every 6 hours so the numbers on the page stay fresh. Every run rewrites
+# site/metrics.json from GitHub before the upload, so the fresh file goes
+# straight into the Pages artifact and nothing is ever committed or pushed.
 on:
   push:
     branches: [main]
     paths:
       - "site/**"
       - ".github/workflows/site.yml"
+  schedule: [{cron: "23 */6 * * *"}]
   workflow_dispatch:
 
 permissions: {}
 
+# One deploy at a time: a scheduled run and a push run queue, never overlap.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -30,6 +35,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The script exits 1 on any failed read or missing number, which stops
+      # the job here: the live site keeps its last good numbers instead of
+      # getting stale or zeroed ones. The token only raises the API rate
+      # limit; every read is of public data.
+      - name: refresh the numbers
+        run: node site/refresh-metrics.js
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      # A second, independent check that the file really is today's and
+      # really holds clones, so a script that exits 0 without writing still
+      # fails the run.
+      - name: check the numbers are fresh
+        run: >-
+          node -e "const m = require('./site/metrics.json');
+          const day = new Date().toISOString().slice(0, 10);
+          if (m.updated !== day || !(m.clones.lifetime > 0) || !(m.totalCounted.clones > 0))
+          { console.error('site/metrics.json is stale or empty: ' + JSON.stringify(m)); process.exit(1); }"
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
