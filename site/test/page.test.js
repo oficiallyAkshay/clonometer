@@ -7,69 +7,56 @@ const Page = require('../page.js');
 
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
-test('a failed or empty data file gives no clone numbers', () => {
-  for (const m of [null, undefined, {}, { clones: {} }, { clones: { lifetime: 'x', last14d: 3 } }, { clones: { lifetime: 5 } }, { clones: { lifetime: -1, last14d: 2 } }, { clones: { lifetime: 1.5, last14d: 2 } }]) {
-    assert.strictEqual(Page.clonesOf(m), null);
-  }
-  assert.deepStrictEqual(Page.clonesOf({ clones: { lifetime: 2853, last14d: 527 } }), { life: 2853, last14d: 527 });
-  assert.deepStrictEqual(Page.clonesOf({ clones: { lifetime: 0, last14d: 0 } }), { life: 0, last14d: 0 });
-});
-
 test('the page holds no sample numbers to fall back on', () => {
   assert.doesNotMatch(read('site.js'), /FALLBACK|1200|\b168\b/);
 });
 
-test('the cross-repository total and the repository count say they are the owner\'s own repositories', () => {
-  assert.strictEqual(Page.totalLabel({ totalCounted: { clones: 18304, repos: 8 } }), 'Clones of the owner\'s own repositories');
+test('the cross-repository total reads Globally tracked clones and the repository count reads Used in', () => {
+  assert.strictEqual(Page.totalLabel({ totalCounted: { clones: 18304, repos: 8 } }), 'Globally tracked clones');
   assert.strictEqual(Page.totalLabel({}), null);
   assert.strictEqual(Page.totalLabel({ totalCounted: { repos: 0 } }), null);
   const html = read('index.html');
   assert.match(html, /id="liTotal"/);
-  assert.match(html, /<li id="liRepos"[^\n]*<span class="key">Owner's own repositories<\/span>/);
-  assert.doesNotMatch(html, /globally|used by|Tracked globally|Counted across all repos/i);
-  assert.doesNotMatch(read('page.js').replace(/\/\/.*/g, ''), /globally|used by/i);
+  assert.match(html, /<li id="liRepos"[^\n]*<span class="key">Used in<\/span>/);
+  assert.match(html, /<span class="key">Globally tracked clones<\/span>/);
+  assert.doesNotMatch(html, /owner's own|automated traffic/i);
 });
 
 
 test('every number in the footer starts hidden and empty, so a failed fetch leaves none', () => {
   const html = read('index.html');
   const items = (html.match(/<li [^\n]*<\/li>/g) || []).filter((li) => li.includes('data-k='));
-  assert.ok(items.length >= 7, 'found ' + items.length + ' footer items');
+  assert.ok(items.length >= 5, 'found ' + items.length + ' footer items');
   for (const li of items) {
     assert.match(li, /^<li[^>]*\bhidden\b/, li.slice(0, 60));
     assert.match(li, /data-k="[^"]+"[^>]*><\/b>/, 'a number is baked in: ' + li.slice(-40));
   }
 });
 
-test('no daily values are invented: the data file has no daily series, so the tube shape is fixed and the 14-day figure shows as one number', () => {
-  assert.strictEqual(Page.windowFrom, undefined);
-  assert.strictEqual(Page.decor.length, 14);
-  assert.strictEqual(new Set(Page.decor).size, 1, 'decorative beads must all be equal, so they cannot read as days');
-  const js = read('site.js'), scene = read('scene.js'), page = read('page.js');
-  assert.doesNotMatch(js + page, /windowFrom|rnd\(|seed = 11|S\.win/);
-  assert.match(js, /fbw'\)\.textContent = fmt\(S\.fig\)/);
-  assert.match(js, /vWin\.textContent = fmt\(S\.fig\)/);
-  const gauge = scene.slice(scene.indexOf('function drawGauge'), scene.indexOf('var DX = []'));
-  assert.doesNotMatch(gauge, /win\[|Math\.max|bh/, 'the small screen draws no bars');
-  assert.deepStrictEqual(JSON.parse(read('metrics.json')).clones.last14d, 527);
-  assert.strictEqual(Object.keys(JSON.parse(read('metrics.json')).clones).join(), 'lifetime,last14d');
+test('the machine runs on made-up numbers: a base that grows with the clock, then each ball adds its own value', () => {
+  const t0 = Date.UTC(2026, 10, 4);
+  assert.ok(Page.machineCount(t0 + 3600e3) > Page.machineCount(t0));
+  assert.ok(Page.machineCount(t0) < 9999999);
+  const a = Page.series(11), b = Page.series(11), xs = Array.from({ length: 30 }, a);
+  assert.deepStrictEqual(xs, Array.from({ length: 30 }, b), 'the stream repeats for one seed');
+  assert.ok(new Set(xs).size > 5, 'days vary');
+  assert.ok(xs.every((v) => Number.isInteger(v) && v >= 1));
+  const js = read('site.js');
+  assert.doesNotMatch(js, /clonesOf|seedFrom|last14d|metrics\.clones/);
+  assert.match(js, /scene\.rollDigits/);
+  assert.match(js, /S\.fig = total/);
+  assert.match(read('scene.js'), /x\.fillRect\(30 \+ i \* bw/, 'the small screen draws a bar per day');
 });
 
-test('the first paint shows the poster machine with no number on it, and the canvas hides it once on', () => {
+test('the first paint shows one calm loading panel, never a 2D machine, and the canvas fades in over it', () => {
   const html = read('index.html'), css = read('style.css'), js = read('site.js');
-  const fb = html.slice(html.indexOf('id="fb"'), html.indexOf('</main>'));
-  assert.doesNotMatch(fb, /fbplaque|fbplinth/);
-  assert.match(fb, /id="fbwin"/);
-  assert.doesNotMatch(fb, /<span>\d<\/span>|id="fbw"[^>]*>\d/);
-  assert.doesNotMatch(css, /(^|\n)\.fb\{display:none\}/);
-  assert.match(css, /\.glon \.fb\{display:none\}/);
+  assert.match(html, /id="load"/);
+  assert.doesNotMatch(html, /id="fb"|fbwin|poster/);
+  assert.doesNotMatch(css, /\.fb|\.cell|\.sepc/);
+  assert.match(css, /\.glon \.load\{opacity:0\}/);
+  assert.doesNotMatch(js, /buildFallback/);
   assert.match(js, /classList\.add\('glon'\)/);
   assert.match(js, /classList\.remove\('glon'\)/);
-});
-
-test('the note that clones include automated traffic sits inside the clone total item', () => {
-  assert.match(read('index.html'), /<li id="liTotal"[^\n]*<\/b><small>Clones include automated traffic\.<\/small><\/li>/);
-  assert.strictEqual(read('index.html').split('Clones include automated traffic.').length, 2);
 });
 
 test('stars and watchers show only from 10 stars, clones always', () => {
@@ -85,6 +72,8 @@ test('the page shows the live badge of this repository, read from its own data f
   assert.ok(img, 'no badge image');
   assert.match(img[0], /src="https:\/\/img\.shields\.io\/badge\/dynamic\/json\?url=https:\/\/raw\.githubusercontent\.com\/oficiallyAkshay\/clonometer\/badges\/clones\.json&amp;query=\$\.badge/);
   assert.match(img[0], /height="20"/);
+  assert.match(html, /<li id="liBadge"><img class="badge"/);
+  assert.doesNotMatch(html, /Clones, all time|Clones, last 14 days|id="liClones/i);
 });
 
 test('the page has no ledger, no serial plate and no placeholder licence note', () => {

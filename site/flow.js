@@ -33,13 +33,13 @@
     }
     F.addBead = function (c) { beads.push({ c: c, r: rOf(c), ph: -1, x: RX, y: BASE_Y, z: PZ, v: 0.8, a: 0, jx: 0, slot: -1 }); };
     // replay: the scene clock sends the oldest real day round again, one bead per day length, never more than MAXQ waiting to land.
-    // A bead is worth exactly the one it will push out, so the 14-day total never moves.
+    // With opts.next each new bead carries a fresh value, so the 14-day total moves with every ball; without it the bead is worth the one it pushes out and the total holds.
     var MAXQ = 3, acc = 0;
     F.queued = function () { return beads.filter(function (b) { return !b.still && (b.ph === 8 || (b.ph === -1 && !b.counted)); }).length; };
     function replay(dt) {
       acc = Math.min(acc + dt, DAY);
       var q = F.queued(), i = chain.length - 1 - q;
-      if (acc >= DAY && q < MAXQ && chain.length === N && i >= 0) { acc -= DAY; F.addBead(chain[i].c); }
+      if (acc >= DAY && q < MAXQ && chain.length === N && i >= 0) { acc -= DAY; F.addBead(opts.next ? opts.next() : chain[i].c); }
     }
     F.seed = function (cs, still) {
       // cs is oldest first; the chain keeps newest first

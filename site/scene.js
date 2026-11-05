@@ -565,14 +565,17 @@ void main(){
   }
 
   var gauge = { c: cv(512, 410) };
-  // the small screen shows the 14-day figure as one number; the data file holds no daily counts, so it draws no bars
-  function drawGauge(figure) {
+  // the small screen shows the 14-day total and one bar per day
+  function drawGauge(win) {
     var x = gauge.c.getContext('2d'), w = 512, h = 410;
     var g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#dcff4e'); g.addColorStop(1, '#bff01a');
     x.fillStyle = g; x.fillRect(0, 0, w, h);
     x.fillStyle = '#0d1114';
+    var sum = win.reduce(function (a, b) { return a + b; }, 0);
     x.letterSpacing = '0px'; x.textAlign = 'left'; x.font = '800 118px ' + SANS;
-    x.fillText(figure.toLocaleString('en-US'), 26, 190);
+    x.fillText(sum.toLocaleString('en-US'), 26, 190);
+    var mx = Math.max.apply(null, win.concat([1])), n = 16, bw = (w - 60) / n;
+    for (var i = 0; i < win.length; i++) { var bh = 8 + 100 * (win[i] / mx); x.fillRect(30 + i * bw + 2, h - 36 - bh, bw - 4, bh); }
     x.fillRect(30, h - 30, w - 60, 3);
     x.strokeStyle = 'rgba(13,17,20,.5)'; x.lineWidth = 4; x.strokeRect(2, 2, w - 4, h - 4);
   }
@@ -622,7 +625,7 @@ void main(){
       gl.uniform1fv(U['uSX[0]'], new Float32Array(SEP_X));
       return true;
     }
-    drawGauge(opts.figure || 0);
+    drawGauge(opts.win || [1]);
     if (!build()) return null;
 
     var S = {
@@ -796,10 +799,18 @@ void main(){
       }
       S.invalidate();
     };
+    // the drums roll forward to a new number; a drum already on its digit stays put
+    S.rollDigits = function (digits) {
+      for (var i = 0; i < 7; i++) {
+        var d = S.drums[i], cur = ((Math.round(d.tg) % 10) + 10) % 10, fwd = (digits[i] - cur + 10) % 10;
+        if (fwd) { d.tg += fwd; d.k = 60; d.t0 = clock; if (S.reduce) d.a = d.tg; }
+      }
+      S.invalidate();
+    };
     var flow = window.Flow.create({
-      full: opts.full, replay: !!opts.replay,
+      full: opts.full, replay: !!opts.replay, next: opts.next,
       onGate: function (cnt, on) { if (opts.onGate) opts.onGate(cnt, on); },
-      onWindow: function (total, cs, ev) { if (opts.onWindow) opts.onWindow(total, cs, ev); S.invalidate(); }
+      onWindow: function (total, cs, ev) { drawGauge(cs); upload(3, tGau, gauge.c); if (opts.onWindow) opts.onWindow(total, cs, ev); S.invalidate(); }
     });
     S.flow = flow; S.dayLen = flow.DAY; S.trap = 0; S.keep = 1.0;
     S.seedTube = flow.seed;
