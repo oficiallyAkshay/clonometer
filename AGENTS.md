@@ -10,7 +10,6 @@ library only, no runtime dependencies.
 | `tests/` | pytest, fake HTTP, fake ledger, fake git |
 | `scripts/` | The hero drawing script |
 | `.github/workflows/` | CI gates and the dogfood workflow |
-| `SECURITY.md` | How to report a vulnerability, and what the token's blast radius is |
 
 Reference: [CONTRIBUTING](.github/CONTRIBUTING.md) holds the consumer
 workflow, the numbers file and CLI reference, what CI runs, the test
