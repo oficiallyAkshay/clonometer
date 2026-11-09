@@ -4,5 +4,4 @@
 
 - [Site](https://oficiallyakshay.github.io/clonometer/): the machine, with the live clone numbers
 - [Repository](https://github.com/oficiallyAkshay/clonometer): source, README and install steps
-- [Security policy](https://github.com/oficiallyAkshay/clonometer/blob/main/SECURITY.md): how to report a vulnerability
 - [Licence](https://github.com/oficiallyAkshay/clonometer/blob/main/LICENSE): MIT
