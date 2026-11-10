@@ -32,9 +32,9 @@ async function build(get, now, prev) {
   };
 }
 
-async function main() {
+async function main(dir = __dirname) {
   const fs = require('node:fs'), path = require('node:path');
-  const file = path.join(__dirname, 'metrics.json');
+  const file = path.join(dir, 'metrics.json');
   const token = process.env.GITHUB_TOKEN;
   const get = async (url) => {
     // the contents endpoint answers with the file itself when asked for the raw form
@@ -45,10 +45,11 @@ async function main() {
     if (!r.ok) throw new Error(url + ' answered ' + r.status);
     return r.json();
   };
-  const prev = JSON.parse(fs.readFileSync(file, 'utf8'));
+  // the file is not committed: a fresh checkout has none, so start from an empty object; a file that exists but is bad still throws
+  const prev = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
   const next = await build(get, new Date(), prev);
   fs.writeFileSync(file, JSON.stringify(next, null, 2) + '\n');
 }
 
-module.exports = { build, OWNER, REPO };
+module.exports = { build, main, OWNER, REPO };
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exit(1); });

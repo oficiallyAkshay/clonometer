@@ -54,6 +54,28 @@ test('fields the script does not read are kept from the file it replaces', async
   assert.deepStrictEqual((await build(world().get, NOW, {})).downloads, { total: null, last30d: null });
 });
 
+test('main starts from an empty object when no previous numbers file exists, and still fails on a bad one', async () => {
+  const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'metrics-'));
+  const pages = world().get;
+  const realFetch = global.fetch;
+  global.fetch = async (url) => {
+    const body = await pages(url);
+    return { status: body === null ? 404 : 200, ok: body !== null, json: async () => body };
+  };
+  try {
+    await require('../refresh-metrics.js').main(dir);
+    const written = JSON.parse(fs.readFileSync(path.join(dir, 'metrics.json'), 'utf8'));
+    assert.deepStrictEqual(written.downloads, { total: null, last30d: null });
+    assert.strictEqual(written.clones.lifetime, 2853);
+    fs.writeFileSync(path.join(dir, 'metrics.json'), '{ not json');
+    await assert.rejects(require('../refresh-metrics.js').main(dir), SyntaxError);
+  } finally {
+    global.fetch = realFetch;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('the site workflow refreshes the numbers every 6 hours and before every upload to Pages', () => {
   const yml = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '.github', 'workflows', 'site.yml'), 'utf8');
   const cron = yml.match(/cron:\s*"([^"]+)"/);
