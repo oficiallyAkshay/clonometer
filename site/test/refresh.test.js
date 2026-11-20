@@ -4,7 +4,8 @@ const assert = require('node:assert');
 const { build, OWNER, REPO } = require('../refresh-metrics.js');
 
 const API = 'https://api.github.com/';
-const RAW = (name) => `${API}repos/${OWNER}/${name}/contents/clones.json?ref=badges`;
+const RAW = (name, owner = OWNER) => `${API}repos/${owner}/${name}/contents/clones.json?ref=badges`;
+const SEARCH = (page = 1) => `${API}search/code?q=${encodeURIComponent(`"${OWNER}/${REPO}" path:.github/workflows`)}&per_page=100&page=${page}`;
 const NOW = new Date('2026-11-03T04:05:06Z');
 
 function world(over) {
@@ -12,6 +13,8 @@ function world(over) {
     [`${API}repos/${OWNER}/${REPO}`]: { stargazers_count: 4, forks_count: 1, subscribers_count: 2, open_issues_count: 5 },
     [`${API}search/issues?q=${encodeURIComponent(`repo:${OWNER}/${REPO} is:issue is:open`)}`]: { total_count: 2 },
     [`${API}users/${OWNER}/repos?type=owner&per_page=100`]: [{ name: REPO }, { name: 'one' }, { name: 'two' }, { name: 'plain' }],
+    [SEARCH()]: { items: [{ repository: { full_name: `${OWNER}/${REPO}` } }, { repository: { full_name: 'NeelM0906/Mference' } }, { repository: { full_name: 'NeelM0906/Mference' } }] },
+    [RAW('Mference', 'NeelM0906')]: { total: 40, window: { count: 9 } },
     [RAW(REPO)]: { total: 2853, window: { count: 527 } },
     [RAW('one')]: { total: 100, window: { count: 3 } },
     [RAW('two')]: { total: 11, window: { count: 0 } },
@@ -38,8 +41,23 @@ test('open issues count issues only, not the pull requests the repository count 
 
 test('the total across repositories sums only repositories that run clonometer and says how many', async () => {
   const m = await build(world().get, NOW, {});
-  assert.strictEqual(m.totalCounted.clones, 2853 + 100 + 11);
-  assert.strictEqual(m.totalCounted.repos, 3);
+  assert.strictEqual(m.totalCounted.clones, 2853 + 100 + 11 + 40);
+  assert.strictEqual(m.totalCounted.repos, 4);
+});
+
+test('a repository on another account that runs clonometer is found by search and counted once', async () => {
+  const w = world();
+  const m = await build(w.get, NOW, {});
+  assert.ok(m.totalCounted.clones >= 40);
+  assert.strictEqual(w.asked.filter((u) => u === RAW('Mference', 'NeelM0906')).length, 1);
+});
+
+test('search pages are followed until a short page', async () => {
+  const full = Array.from({ length: 100 }, (_, i) => ({ repository: { full_name: `x/r${i}` } }));
+  const w = world({ [SEARCH(1)]: { items: full }, [SEARCH(2)]: { items: [{ repository: { full_name: 'NeelM0906/Mference' } }] } });
+  const get = async (u) => (u.includes('/contents/') && u.includes('/x/') ? null : w.get(u));
+  const m = await build(get, NOW, {});
+  assert.strictEqual(m.totalCounted.repos, 4);
 });
 
 test('a run that cannot read one of the numbers throws and writes nothing partial', async () => {
