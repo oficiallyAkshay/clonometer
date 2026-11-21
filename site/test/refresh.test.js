@@ -13,6 +13,7 @@ function world(over) {
     [`${API}repos/${OWNER}/${REPO}`]: { stargazers_count: 4, forks_count: 1, subscribers_count: 2, open_issues_count: 5 },
     [`${API}search/issues?q=${encodeURIComponent(`repo:${OWNER}/${REPO} is:issue is:open`)}`]: { total_count: 2 },
     [`${API}users/${OWNER}/repos?type=owner&per_page=100`]: [{ name: REPO }, { name: 'one' }, { name: 'two' }, { name: 'plain' }],
+    [`${API}rate_limit`]: { resources: { code_search: { remaining: 10 } } },
     [SEARCH()]: { items: [{ repository: { full_name: `${OWNER}/${REPO}` } }, { repository: { full_name: 'NeelM0906/Mference' } }, { repository: { full_name: 'NeelM0906/Mference' } }] },
     [RAW('Mference', 'NeelM0906')]: { total: 40, window: { count: 9 } },
     [RAW(REPO)]: { total: 2853, window: { count: 527 } },
@@ -79,6 +80,22 @@ test('repositories tracked last time are still counted when the search finds not
     assert.strictEqual(m.totalCounted.clones, 2853 + 100 + 11 + 40);
     assert.deepStrictEqual(m.tracked.slice().sort(), [`${OWNER}/${REPO}`, `${OWNER}/one`, `${OWNER}/two`, 'NeelM0906/Mference'].sort());
   } finally { console.warn = warn; }
+});
+
+test('the search runs at most every 3 hours and only while the quota is left', async () => {
+  const w = world();
+  const searches = () => w.asked.filter((u) => u.includes('/search/code')).length;
+  const first = await build(w.get, NOW, {});
+  assert.strictEqual(searches(), 1);
+  assert.strictEqual(first.searched, NOW.toISOString());
+  await build(w.get, new Date(NOW.getTime() + 3600e3), first);
+  assert.strictEqual(searches(), 1);
+  const later = await build(w.get, new Date(NOW.getTime() + 4 * 3600e3), first);
+  assert.strictEqual(searches(), 2);
+  assert.strictEqual(later.searched, new Date(NOW.getTime() + 4 * 3600e3).toISOString());
+  const dry = world({ [`${API}rate_limit`]: { resources: { code_search: { remaining: 0 } } } });
+  const warn = console.warn; console.warn = () => {};
+  try { const m = await build(dry.get, NOW, {}); assert.strictEqual(dry.asked.filter((u) => u.includes('/search/code')).length, 0); assert.strictEqual(m.searched, null); } finally { console.warn = warn; }
 });
 
 test('a rate limited answer is retried after the wait it names', async () => {
