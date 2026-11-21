@@ -4,6 +4,7 @@
 'use strict';
 const OWNER = 'oficiallyAkshay', REPO = 'clonometer';
 const API = 'https://api.github.com/';
+const LIVE = 'https://oficiallyakshay.github.io/clonometer/metrics.json';
 const whole = (n) => typeof n === 'number' && Number.isInteger(n) && n >= 0;
 
 // get(url) resolves to parsed JSON, or null for a missing page; any other failure throws
@@ -26,11 +27,14 @@ async function build(get, now, prev) {
   } catch (e) {
     console.warn('repository search failed, counting the repositories found so far: ' + e.message);
   }
+  // the repositories that had numbers last time stay candidates, so a failed search still counts them
+  for (const full of Array.isArray(prev.tracked) ? prev.tracked : []) if (typeof full === 'string' && /^[\w.-]+\/[\w.-]+$/.test(full)) found_.add(full);
   let sum = 0, repos = 0, own = null;
+  const tracked = [];
   for (const full of found_) {
     const c = await get(`${API}repos/${full}/contents/clones.json?ref=badges`);
     if (!c || !whole(c.total)) continue;                  // not running clonometer, or no numbers yet
-    sum += c.total; repos++;
+    sum += c.total; repos++; tracked.push(full);
     if (full.toLowerCase() === `${OWNER}/${REPO}`.toLowerCase()) own = c;
   }
   if (!own || !whole(own.window && own.window.count)) throw new Error('no clone numbers for clonometer itself');
@@ -39,6 +43,7 @@ async function build(get, now, prev) {
     stars: info.stargazers_count, forks: info.forks_count, watchers: info.subscribers_count, openIssues: found.total_count,
     downloads: prev.downloads || { total: null, last30d: null },
     clones: { lifetime: own.total, last14d: own.window.count },
+    tracked,
     totalCounted: { clones: sum, repos, updated: day, source: `Sum of lifetime clones (total) from the badges branch clones.json of the ${repos} public repositories that run clonometer, found by searching GitHub workflows, read ${day}.` },
     updated: day,
     source: `GitHub API repos/${OWNER}/${REPO} (stars, forks, watchers), issue search (open issues, pull requests excluded) and the badges branch clones.json (clones), read ${day}. Downloads: no release assets exist, so none shown.`
@@ -65,7 +70,11 @@ async function main(dir = __dirname) {
     return r.json();
   };
   // the file is not committed: a fresh checkout has none, so start from an empty object; a file that exists but is bad still throws
-  const prev = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+  let prev = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+  // a fresh checkout has none, so read the repositories tracked on the live site; no answer just means none are remembered
+  if (!prev.tracked) {
+    try { const live = await get(LIVE); if (live && Array.isArray(live.tracked)) prev = Object.assign({}, prev, { tracked: live.tracked }); } catch (e) { console.warn('live numbers unreadable: ' + e.message); }
+  }
   const next = await build(get, new Date(), prev);
   fs.writeFileSync(file, JSON.stringify(next, null, 2) + '\n');
 }
