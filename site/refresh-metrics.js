@@ -15,11 +15,16 @@ async function build(get, now, prev) {
   // every repository whose workflow names this action, on any account, plus the owner's own repositories
   const found_ = new Set(((await get(`${API}users/${OWNER}/repos?type=owner&per_page=100`)) || []).map((r) => `${OWNER}/${r.name}`));
   const q = encodeURIComponent(`"${OWNER}/${REPO}" path:.github/workflows`);
-  for (let page = 1; page <= 10; page++) {
-    const hits = (await get(`${API}search/code?q=${q}&per_page=100&page=${page}`)) || {};
-    const items = Array.isArray(hits.items) ? hits.items : [];
-    for (const it of items) if (it.repository && it.repository.full_name) found_.add(it.repository.full_name);
-    if (items.length < 100) break;
+  // code search is rate limited hard, so a failed search keeps what was found and must not stop the whole refresh
+  try {
+    for (let page = 1; page <= 10; page++) {
+      const hits = (await get(`${API}search/code?q=${q}&per_page=100&page=${page}`)) || {};
+      const items = Array.isArray(hits.items) ? hits.items : [];
+      for (const it of items) if (it.repository && it.repository.full_name) found_.add(it.repository.full_name);
+      if (items.length < 100) break;
+    }
+  } catch (e) {
+    console.warn('repository search failed, counting the repositories found so far: ' + e.message);
   }
   let sum = 0, repos = 0, own = null;
   for (const full of found_) {
@@ -48,7 +53,13 @@ async function main(dir = __dirname) {
     // the contents endpoint answers with the file itself when asked for the raw form
     const headers = { accept: url.includes('/contents/') ? 'application/vnd.github.raw+json' : 'application/vnd.github+json' };
     if (token && url.startsWith(API)) headers.authorization = 'Bearer ' + token;
-    const r = await fetch(url, { headers, redirect: 'error' });
+    let r = await fetch(url, { headers, redirect: 'error' });
+    // a rate limit says how long to wait; try again twice, for at most a minute each
+    for (let n = 0; r.status === 429 && n < 2; n++) {
+      const wait = Math.min(60, Number(r.headers && r.headers.get('retry-after')) || 30);
+      await new Promise((done) => setTimeout(done, wait * 1000));
+      r = await fetch(url, { headers, redirect: 'error' });
+    }
     if (r.status === 404) return null;
     if (!r.ok) throw new Error(url + ' answered ' + r.status);
     return r.json();

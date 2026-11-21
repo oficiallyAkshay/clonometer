@@ -60,6 +60,24 @@ test('search pages are followed until a short page', async () => {
   assert.strictEqual(m.totalCounted.repos, 4);
 });
 
+test('a failed search still counts the owner repositories and does not stop the refresh', async () => {
+  const w = world();
+  const get = async (u) => { if (u.includes('/search/code')) throw new Error('answered 429'); return w.get(u); };
+  const warn = console.warn; console.warn = () => {};
+  try {
+    const m = await build(get, NOW, {});
+    assert.strictEqual(m.totalCounted.clones, 2853 + 100 + 11);
+  } finally { console.warn = warn; }
+});
+
+test('a rate limited answer is retried after the wait it names', async () => {
+  const realFetch = global.fetch; let calls = 0;
+  global.fetch = async () => (++calls === 1 ? { status: 429, ok: false, headers: { get: () => '0' } } : { status: 200, ok: true, json: async () => ({}) });
+  const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'metrics-'));
+  try { await require('../refresh-metrics.js').main(dir).catch(() => {}); assert.ok(calls >= 2); } finally { global.fetch = realFetch; fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('a run that cannot read one of the numbers throws and writes nothing partial', async () => {
   await assert.rejects(build(world({ [RAW(REPO)]: null }).get, NOW, {}), /clonometer/);
   await assert.rejects(build(world({ [RAW(REPO)]: { total: 'x', window: { count: 1 } } }).get, NOW, {}), /clonometer/);
