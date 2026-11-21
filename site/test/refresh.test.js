@@ -70,6 +70,17 @@ test('a failed search still counts the owner repositories and does not stop the 
   } finally { console.warn = warn; }
 });
 
+test('repositories tracked last time are still counted when the search finds nothing', async () => {
+  const w = world();
+  const get = async (u) => { if (u.includes('/search/code')) throw new Error('answered 429'); return w.get(u); };
+  const warn = console.warn; console.warn = () => {};
+  try {
+    const m = await build(get, NOW, { tracked: ['NeelM0906/Mference', 'bad name'] });
+    assert.strictEqual(m.totalCounted.clones, 2853 + 100 + 11 + 40);
+    assert.deepStrictEqual(m.tracked.slice().sort(), [`${OWNER}/${REPO}`, `${OWNER}/one`, `${OWNER}/two`, 'NeelM0906/Mference'].sort());
+  } finally { console.warn = warn; }
+});
+
 test('a rate limited answer is retried after the wait it names', async () => {
   const realFetch = global.fetch; let calls = 0;
   global.fetch = async () => (++calls === 1 ? { status: 429, ok: false, headers: { get: () => '0' } } : { status: 200, ok: true, json: async () => ({}) });
