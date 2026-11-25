@@ -10,11 +10,11 @@ dependencies = []
 dev = [
     "pytest==9.2.0",
     "pytest-cov==7.1.0",
-    "ruff==0.17.4",
-    "diff-cover==11.0.1",
+    "ruff==0.17.5",
+    "diff-cover==11.0.3",
     "pre-commit==4.7.0",
     "pyyaml==6.0.3",
-    "drawsvg==2.4.2",
+    "drawsvg==2.5.0",
     "deptry==0.25.1",
 ]
 
