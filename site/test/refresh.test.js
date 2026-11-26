@@ -140,6 +140,51 @@ test('main starts from an empty object when no previous numbers file exists, and
   }
 });
 
+// runs main with fetch stubbed: every page from world(), except the reads in `special`, which return the given response
+async function runMain(special) {
+  const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'metrics-'));
+  const pages = world().get, realFetch = global.fetch, warn = console.warn, warned = [];
+  console.warn = (m) => warned.push(m);
+  global.fetch = async (url) => {
+    if (url in special) return special[url];
+    const body = await pages(url);
+    return { status: body === null ? 404 : 200, ok: body !== null, json: async () => body };
+  };
+  try {
+    await require('../refresh-metrics.js').main(dir);
+    return { written: JSON.parse(fs.readFileSync(path.join(dir, 'metrics.json'), 'utf8')), warned };
+  } finally { global.fetch = realFetch; console.warn = warn; fs.rmSync(dir, { recursive: true, force: true }); }
+}
+const answer = (status, headers = {}, json) => ({ status, ok: status < 300, headers: { get: (k) => headers[k] ?? null }, json: json || (async () => ({})) });
+const STRANGER = RAW('Mference', 'NeelM0906');
+
+test('another person\'s repository that redirects, refuses the read or holds a bad file is skipped and named', async () => {
+  const cases = {
+    redirect: answer(301), blocked: answer(451), refused: answer(403),
+    'invalid file': answer(200, {}, async () => { throw new SyntaxError('bad'); }),
+    'wrong shape': answer(200, {}, async () => ['x']),
+  };
+  for (const [name, res] of Object.entries(cases)) {
+    const { written, warned } = await runMain({ [STRANGER]: res });
+    assert.strictEqual(written.totalCounted.clones, 2853 + 100 + 11, name);
+    assert.ok(warned.some((m) => m.includes('skipped NeelM0906/Mference')), name);
+  }
+});
+
+test('a rate limit, a server error or a network error on another person\'s repository still fails the refresh', async () => {
+  for (const res of [answer(429), answer(403, { 'x-ratelimit-remaining': '0' }), answer(403, { 'retry-after': '60' }), answer(500), answer(503)]) {
+    await assert.rejects(runMain({ [STRANGER]: res }), /answered/);
+  }
+  await assert.rejects(runMain({ get [STRANGER]() { throw new TypeError('fetch failed'); } }), /fetch failed/);
+});
+
+test('a failed read of the clonometer ledger itself still fails the refresh', async () => {
+  for (const res of [answer(301), answer(403), answer(451), answer(200, {}, async () => { throw new SyntaxError('bad'); })]) {
+    await assert.rejects(runMain({ [RAW(REPO)]: res }));
+  }
+});
+
 test('the site workflow refreshes the numbers every 6 hours and before every upload to Pages', () => {
   const yml = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '.github', 'workflows', 'site.yml'), 'utf8');
   const cron = yml.match(/cron:\s*"([^"]+)"/);
