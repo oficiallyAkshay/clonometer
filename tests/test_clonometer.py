@@ -558,6 +558,20 @@ def test_read_ledger_refuses_the_same_way_for_a_views_ledger(fake_http) -> None:
         )
 
 
+def test_read_ledger_refuses_when_the_published_file_cannot_be_checked(fake_http) -> None:
+    fake_http.queue(http_error(404), {"name": "badges"}, http_error(500))
+    with pytest.raises(clonometer.ClonometerError, match=r"views\.json .* HTTP 500"):
+        clonometer.read_ledger(
+            clonometer.DEFAULT_API_ROOT,
+            REPO,
+            "badges",
+            "a-token",
+            "views-ledger.json",
+            TODAY,
+            never_published="views.json",
+        )
+
+
 def test_read_ledger_with_allow_restart_skips_the_branch_check_and_starts_fresh(
     fake_http,
 ) -> None:
@@ -957,6 +971,57 @@ def test_cli_allow_restart_recovers_a_run_when_the_branch_exists_without_a_ledge
     assert len(fake_http.requests) == 2
     ledger_doc = json.loads((out_dir / "clones-ledger.json").read_text(encoding="utf-8"))
     assert ledger_doc["days"] == {"2026-09-17": {"count": 1, "uniques": 1}}
+
+
+def test_cli_adding_views_to_a_working_clones_setup_starts_a_views_ledger(
+    fake_http, token_env, frozen_today, tmp_path: Path
+) -> None:
+    """The README invites adding views later: that run finds the branch but no views files."""
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-16", 4, 2)]),
+        http_error(404),
+        http_error(404),
+    )
+    first = tmp_path / "first"
+    assert clonometer.main([REPO, "--write", str(first)]) == 0
+    clones_ledger = json.loads((first / "clones-ledger.json").read_text(encoding="utf-8"))
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 1, 1)]),
+        contents_response(clones_ledger),
+        traffic_payload("views", [("2026-09-17", 7, 3)]),
+        http_error(404),
+        {"name": "badges"},
+        http_error(404),
+    )
+    second = tmp_path / "second"
+    args = [REPO, "--metrics", "clones,views", "--write", str(second)]
+    assert clonometer.main(args) == 0
+    assert fake_http.requests[-1].full_url == (
+        f"{clonometer.DEFAULT_API_ROOT}/repos/{REPO}/contents/views.json?ref=badges"
+    )
+    views_ledger = json.loads((second / "views-ledger.json").read_text(encoding="utf-8"))
+    assert views_ledger["days"] == {"2026-09-17": {"count": 7, "uniques": 3}}
+    clones_doc = json.loads((second / "clones.json").read_text(encoding="utf-8"))
+    assert clones_doc["total"] == 5
+
+
+def test_cli_refuses_views_when_the_published_views_file_is_there_without_its_ledger(
+    fake_http, token_env, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """views.json without views-ledger.json is the force-push sign, so it is still refused."""
+    fake_http.queue(
+        traffic_payload("clones", [("2026-09-17", 1, 1)]),
+        contents_response(ledger({"2026-09-16": {"count": 4, "uniques": 2}})),
+        traffic_payload("views", [("2026-09-17", 1, 1)]),
+        http_error(404),
+        {"name": "badges"},
+        contents_response({"metric": "views"}),
+    )
+    out_dir = tmp_path / "out"
+    args = [REPO, "--metrics", "clones,views", "--write", str(out_dir)]
+    assert clonometer.main(args) == 1
+    assert not out_dir.exists()
+    assert "views-ledger.json is missing" in capsys.readouterr().err
 
 
 def test_short_switches_to_millions_when_rounding_would_read_a_thousand_k() -> None:

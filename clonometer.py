@@ -285,6 +285,20 @@ def branch_exists(api_root: str, repo: str, branch: str, token: str) -> bool:
     return True
 
 
+def _missing(api_root: str, repo: str, branch: str, token: str, file_name: str) -> bool:
+    """True when file_name is not on the branch; any status but 404 is refused."""
+    url = f"{api_root}/repos/{repo}/contents/{file_name}?ref={urllib.parse.quote(branch, safe='')}"
+    try:
+        _get_json(url, token)
+    except urllib.error.HTTPError as error:
+        if error.code == HTTP_NOT_FOUND:
+            return True
+        raise ClonometerError(
+            f"could not read {file_name} from the {branch} branch: HTTP {error.code}",
+        ) from error
+    return False
+
+
 def read_ledger(
     api_root: str,
     repo: str,
@@ -294,6 +308,7 @@ def read_ledger(
     today: str,
     *,
     allow_restart: bool = False,
+    never_published: str | None = None,
 ) -> dict:
     """The previous ledger, or a freshly started one when there is none yet.
 
@@ -305,9 +320,12 @@ def read_ledger(
     the ledger) looks like; that is refused rather than silently restarted,
     because a quiet restart is exactly the lifetime total loss this module
     exists to prevent. ``allow_restart`` is the one escape hatch: set for a
-    single run, it skips the check and starts a fresh ledger anyway. Any
-    other failure, a bad status, a body that will not decode, a schema that
-    does not match, is refused the same way a missing file on an existing
+    single run, it skips the check and starts a fresh ledger anyway.
+    ``never_published`` names the numbers file this ledger's runs publish:
+    when the branch holds neither file, the metric was just added to a
+    working setup and starts fresh; the numbers file alone is still the
+    force-push sign and is refused. Any other failure, a bad status, a body
+    that will not decode, a schema that does not match, is refused the same way a missing file on an existing
     branch is.
     """
     # Percent-encoded so a branch such as "a#b" cannot truncate the ref at
@@ -317,7 +335,14 @@ def read_ledger(
         payload = _get_json(url, token)
     except urllib.error.HTTPError as error:
         if error.code == HTTP_NOT_FOUND:
-            if not allow_restart and branch_exists(api_root, repo, branch, token):
+            if (
+                not allow_restart
+                and branch_exists(api_root, repo, branch, token)
+                and not (
+                    never_published
+                    and _missing(api_root, repo, branch, token, never_published)
+                )
+            ):
                 raise ClonometerError(
                     f"the {branch} branch exists but {file_name} is missing from it; "
                     f"another workflow likely force-pushed over {branch} and deleted the "
@@ -793,6 +818,8 @@ def _compute(
             ledger_file,
             today,
             allow_restart=args.allow_restart,
+            # Views may be added to a working clones setup; clones never starts over.
+            never_published="views.json" if metric == "views" else None,
         )
         old_total = lifetime(previous)
         rows = traffic.get(metric) or []
