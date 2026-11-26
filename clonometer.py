@@ -325,8 +325,8 @@ def read_ledger(
     when the branch holds neither file, the metric was just added to a
     working setup and starts fresh; the numbers file alone is still the
     force-push sign and is refused. Any other failure, a bad status, a body
-    that will not decode, a schema that does not match, is refused the same way a missing file on an existing
-    branch is.
+    that will not decode, a schema that does not match, is refused the same
+    way a missing file on an existing branch is.
     """
     # Percent-encoded so a branch such as "a#b" cannot truncate the ref at
     # the fragment marker and silently ask for a different branch.
