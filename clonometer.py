@@ -339,8 +339,7 @@ def read_ledger(
                 not allow_restart
                 and branch_exists(api_root, repo, branch, token)
                 and not (
-                    never_published
-                    and _missing(api_root, repo, branch, token, never_published)
+                    never_published and _missing(api_root, repo, branch, token, never_published)
                 )
             ):
                 raise ClonometerError(
