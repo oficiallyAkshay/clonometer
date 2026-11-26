@@ -7,7 +7,8 @@ const API = 'https://api.github.com/';
 const LIVE = 'https://oficiallyakshay.github.io/clonometer/metrics.json';
 const whole = (n) => typeof n === 'number' && Number.isInteger(n) && n >= 0;
 
-// get(url) resolves to parsed JSON, or null for a missing page; any other failure throws
+// get(url) resolves to parsed JSON, or null for a missing page; any other failure throws (an error with skip set
+// is a redirect, a blocked read or an invalid file, which the repository loop may skip for another person's repository)
 async function build(get, now, prev) {
   const info = await get(`${API}repos/${OWNER}/${REPO}`);
   // the repository's open_issues_count includes pull requests, so ask the search for issues only
@@ -41,10 +42,18 @@ async function build(get, now, prev) {
   let sum = 0, repos = 0, own = null;
   const tracked = [];
   for (const full of found_) {
-    const c = await get(`${API}repos/${full}/contents/clones.json?ref=badges`);
+    const isOwn = full.toLowerCase() === `${OWNER}/${REPO}`.toLowerCase();
+    let c;
+    try { c = await get(`${API}repos/${full}/contents/clones.json?ref=badges`); } catch (e) {
+      // another person's moved, blocked or unreadable repository is skipped and named; everything else, and our own numbers, fail
+      if (isOwn || !e.skip) throw e;
+      console.warn(`skipped ${full}: ${e.message}`);
+      continue;
+    }
+    if (c && !whole(c.total) && !isOwn) console.warn(`skipped ${full}: its clones.json has the wrong shape`);
     if (!c || !whole(c.total)) continue;                  // not running clonometer, or no numbers yet
     sum += c.total; repos++; tracked.push(full);
-    if (full.toLowerCase() === `${OWNER}/${REPO}`.toLowerCase()) own = c;
+    if (isOwn) own = c;
   }
   if (!own || !whole(own.window && own.window.count)) throw new Error('no clone numbers for clonometer itself');
   const day = now.toISOString().slice(0, 10);
@@ -67,16 +76,24 @@ async function main(dir = __dirname) {
     // the contents endpoint answers with the file itself when asked for the raw form
     const headers = { accept: url.includes('/contents/') ? 'application/vnd.github.raw+json' : 'application/vnd.github+json' };
     if (token && url.startsWith(API)) headers.authorization = 'Bearer ' + token;
-    let r = await fetch(url, { headers, redirect: 'error' });
+    // 'manual' hands a redirect back as an answer, so it differs from a network error, which still throws
+    let r = await fetch(url, { headers, redirect: 'manual' });
     // a rate limit that names a short wait is waited out once; a long or unnamed wait is not worth the runner time
     const wait = Number(r.status === 429 && r.headers && r.headers.get('retry-after'));
     if (r.status === 429 && Number.isFinite(wait) && wait <= 20) {
       await new Promise((done) => setTimeout(done, wait * 1000));
-      r = await fetch(url, { headers, redirect: 'error' });
+      r = await fetch(url, { headers, redirect: 'manual' });
     }
     if (r.status === 404) return null;
-    if (!r.ok) throw new Error(url + ' answered ' + r.status);
-    return r.json();
+    if (!r.ok) {
+      // a refused read is a rate limit when GitHub says the quota is gone or names a wait; only the other kinds are skippable
+      const h = (k) => (r.headers && r.headers.get ? r.headers.get(k) : null);
+      const limited = h('x-ratelimit-remaining') === '0' || h('retry-after') != null;
+      const e = new Error(url + ' answered ' + r.status);
+      e.skip = !limited && [301, 302, 303, 307, 308, 403, 410, 451].includes(r.status);
+      throw e;
+    }
+    try { return await r.json(); } catch (x) { const e = new Error(url + ' did not return valid JSON'); e.skip = true; throw e; }
   };
   // the file is not committed: a fresh checkout has none, so start from an empty object; a file that exists but is bad still throws
   let prev = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
