@@ -205,8 +205,10 @@ runs:
         fi
         python3 "${home}/clonometer.py" "${GITHUB_REPOSITORY}" --write "${CLONOMETER_OUT}" --branch "${CLONOMETER_BRANCH}" --metrics "${CLONOMETER_METRICS}" ${gist_args[@]+"${gist_args[@]}"} ${restart_args[@]+"${restart_args[@]}"}
         # The numbers on the run's summary page, so nobody has to open a log.
+        # Isolated mode (-I) keeps the working folder, the consumer's
+        # workspace, off the module path while the tokens are in the env.
         if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-          python3 - "${CLONOMETER_OUT}" >> "${GITHUB_STEP_SUMMARY}" <<'PY'
+          python3 -I - "${CLONOMETER_OUT}" >> "${GITHUB_STEP_SUMMARY}" <<'PY'
         import json, pathlib, sys
         out = pathlib.Path(sys.argv[1])
         print("| Metric | Badge line | Last 14 days | Since |")

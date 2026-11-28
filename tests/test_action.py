@@ -797,6 +797,23 @@ def test_both_steps_write_the_numbers_to_the_run_summary(
     assert TOKEN not in text
 
 
+def test_the_run_summary_ignores_a_module_planted_in_the_working_folder(
+    tmp_path: Path, bare_repo: Path, fake_github
+) -> None:
+    """The consumer's workspace is data: a json.py there never runs beside the tokens."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    marker = tmp_path / "planted-ran"
+    (workspace / "json.py").write_text(f"open({str(marker)!r}, 'w').close()\n", encoding="utf-8")
+    summary = tmp_path / "summary.md"
+    env = _first_run(tmp_path, bare_repo, fake_github, GITHUB_STEP_SUMMARY=str(summary))
+    result = _run_step("count", env, workspace)
+    assert not marker.exists()
+    assert result.returncode == 0, result.stderr
+    text = summary.read_text(encoding="utf-8")
+    assert "| clones |" in text and "| views |" in text
+
+
 def test_a_symlink_planted_on_the_branch_is_replaced_not_followed(
     tmp_path: Path, bare_repo: Path, fake_github
 ) -> None:
