@@ -1,0 +1,18 @@
+{
+  "badge": "679 (7d) \u2022 6,516 (all-time)",
+  "last7": 679,
+  "last7_short": "679",
+  "metric": "clones",
+  "repo": "oficiallyAkshay/clonometer",
+  "schema": 1,
+  "since": "2026-09-03",
+  "total": 6516,
+  "total_short": "6,516",
+  "updated": "2026-11-28",
+  "window": {
+    "count": 1485,
+    "days": 14,
+    "uniques": 573
+  },
+  "window_short": "1,485"
+}
