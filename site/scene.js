@@ -13,10 +13,10 @@ out vec4 oc;
 uniform vec2 uRes; uniform float uTime;
 uniform vec3 uTgt; uniform float uSpan, uYaw, uPitch, uShiftY;
 uniform float uTrap, uKeep, uDebug;
-uniform float uSpot, uCover, uCollapse, uGlow, uStill;
+uniform float uSpot, uGlow, uStill;
 uniform float uAng[7], uVel[7], uDX[7], uSX[2];
 uniform vec4 uBead[36]; uniform float uBA[36];
-uniform sampler2D tDig, tFace, tCov, tGau;
+uniform sampler2D tDig, tFace, tGau;
 
 const float WX=0.75, WHX=2.65, WHY=0.5, R=0.95, ZC=-1.05, GX=-3.02, GHX=0.62;
 const float PI=3.14159265, TH=0.2493;
@@ -35,9 +35,8 @@ float fbm(vec2 p){ float a=.5,s=0.; for(int i=0;i<4;i++){ s+=a*vn(p); p=p*2.03+v
 float sdBox(vec3 p, vec3 b){ vec3 q=abs(p)-b; return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.); }
 float sdRB(vec3 p, vec3 b, float r){ return sdBox(p,b-r)-r; }
 vec2 mn(vec2 a, vec2 b){ return a.x<b.x?a:b; }
-float coverY(){ return mix(1.12,0.,uCover); }
 
-// ids: 0 floor, 1 titanium housing, 2 brass, 3 drums, 6 wall, 7 cover, 8 plinth
+// ids: 0 floor, 1 titanium housing, 2 brass, 3 drums, 6 wall, 8 plinth
 vec2 map(vec3 p){
   vec2 res=vec2(p.y+6.1,0.);
   res=mn(res,vec2(min(24.-p.y,min(p.z+6.5,min(40.-p.z,min(p.x+40.,40.-p.x)))),6.));
@@ -293,20 +292,6 @@ void main(){
     F0=mix(F0,vec3(0.28,0.42,0.36),pt*0.55);
     float sc=vn(vec2(p.x*260.,p.y*18.)); F0+=scr(p.xy*1.7,fp)*0.18; n=normalize(n+vec3(0.,(sc-0.5)*0.08,0.)*clamp(1.-fp*260.,0.,1.));
     rough+=pt*0.25;
-  } else if(id>6.5&&id<7.5){ // cover
-    F0=vec3(0.30,0.32,0.35); metal=1.; rough=0.34;
-    float cy=coverY();
-    vec2 cu=vec2((p.x-(WX-2.78))/5.56,(cy+0.55-p.y)/1.1);
-    if(n.z>0.5){
-      vec4 f=textureLod(tCov,cu,lodF);
-      float e=exp2(lodF)/2135.;
-      float gx=textureLod(tCov,cu+vec2(e,0.),lodF).r-textureLod(tCov,cu-vec2(e,0.),lodF).r;
-      float gy=textureLod(tCov,cu+vec2(0.,e*5.06),lodF).r-textureLod(tCov,cu-vec2(0.,e*5.06),lodF).r;
-      n=normalize(n+vec3(-gx,gy,0.)*1.0);
-      if(f.g>0.5){ F0=vec3(0.44,0.45,0.33); rough=0.3; float pt=smoothstep(0.45,0.8,fbm(p.xy*8.)); F0=mix(F0,vec3(0.28,0.42,0.36),pt*0.75); }
-      F0*=1.-0.8*f.r;
-    }
-    float bs=vn(vec2(p.x*380.,p.y*2.4)); n=normalize(n+vec3(0.,(bs-0.5)*0.12,0.)*clamp(1.-fp*380.*0.7,0.,1.));
   } else if(id>12.5){ // cloth tape
     float wv=0.5+0.5*sin(p.x*260.)*sin(p.y*260.+p.z*260.); float st=smoothstep(0.35,0.5,abs(fract(p.x*38.)-0.5));
     float fray=vn(p.xy*60.+p.z*20.);
@@ -469,7 +454,6 @@ void main(){
   // exposure, vignette, tone, grain
   vec2 vq=gl_FragCoord.xy/uRes*2.-1.;
   col*=1.-0.22*dot(vq,vq)*0.6;
-  col*=mix(1.,0.82,uCollapse);
   col=col*(2.51*col+0.03)/(col*(2.43*col+0.59)+0.14);
   col=pow(clamp(col,0.,1.),vec3(1./2.2));
   float g=hash(gl_FragCoord.xy+vec2(floor(uTime*24.)*7.13,0.))-0.5;
@@ -528,7 +512,7 @@ void main(){
       for (var tk = 0; tk < 7; tk++) { var an = Math.PI * (1.1 + tk * 0.13); line(g[0] + Math.cos(an) * 0.075, g[1] - Math.sin(an) * 0.075, g[0] + Math.cos(an) * 0.095, g[1] - Math.sin(an) * 0.095, 2); }
       line(g[0], g[1], g[0] + 0.05, g[1] + 0.05, 3);
     });
-    // upper strip, shown when the cover is down: the one wordmark, wholly left of the seam and clear of the two gauges
+    // upper strip: the one wordmark, wholly left of the seam and clear of the two gauges
     text('clonometer', -3.75, 1.3, 0.15, 'left', 800, 3);
     line(-3.3, 1.06, 1.82, 1.06, 2.5);
     // corner screws
@@ -543,24 +527,6 @@ void main(){
       x.fillStyle = '#f00'; x.textAlign = 'center'; x.font = '800 ' + Math.round(0.5 * S) + 'px ' + SANS;
       x.fillText(',', FX(sx), FY(-0.1));
     });
-    return c;
-  }
-
-  function drawCover() {
-    var S = 384, c = cv(2135, 422), x = c.getContext('2d');
-    x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
-    x.globalCompositeOperation = 'lighter';
-    var groups = 9, gw = 0.5, pitch = 5.56 / groups;
-    for (var g = 0; g < groups; g++) {
-      var cx = (g + 0.5) * pitch * S, top = 0.17 * S, h = 0.5 * S, bw = 0.05 * S;
-      x.fillStyle = '#0f0';
-      for (var b = 0; b < 4; b++) x.fillRect(cx - 0.19 * S + b * 0.127 * S - bw / 2, top, bw, h);
-      x.save(); x.translate(cx, top + h / 2); x.rotate(-0.62); x.fillRect(-0.3 * S, -0.025 * S, 0.6 * S, 0.05 * S); x.restore();
-    }
-    x.fillStyle = '#f00'; x.fillRect(0.2 * S, 0.08 * S, c.width - 0.4 * S, 3);
-    x.fillRect(0.2 * S, 0.84 * S, c.width - 0.4 * S, 3);
-    x.textAlign = 'center'; x.font = '700 ' + Math.round(0.068 * S) + 'px ' + MONO; x.letterSpacing = '6px';
-    x.fillText('THE TOTAL ONLY GOES UP', c.width / 2, 0.97 * S);
     return c;
   }
 
@@ -594,7 +560,7 @@ void main(){
     var gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' });
     if (!gl) return null;
     function sh(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; }
-    var UNAMES = ['uRes', 'uTime', 'uTgt', 'uSpan', 'uYaw', 'uPitch', 'uShiftY', 'uSpot', 'uCover', 'uCollapse', 'uGlow', 'uStill', 'uAng[0]', 'uVel[0]', 'uDX[0]', 'uSX[0]', 'uTrap', 'uKeep', 'uDebug', 'uBead[0]', 'uBA[0]', 'tDig', 'tFace', 'tCov', 'tGau'];
+    var UNAMES = ['uRes', 'uTime', 'uTgt', 'uSpan', 'uYaw', 'uPitch', 'uShiftY', 'uSpot', 'uGlow', 'uStill', 'uAng[0]', 'uVel[0]', 'uDX[0]', 'uSX[0]', 'uTrap', 'uKeep', 'uDebug', 'uBead[0]', 'uBA[0]', 'tDig', 'tFace', 'tGau'];
     var U, aniso, tGau;
     function tex(unit, canvasEl, wrapT) {
       var t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -619,8 +585,8 @@ void main(){
       gl.useProgram(pr);
       U = {}; UNAMES.forEach(function (n) { U[n] = gl.getUniformLocation(pr, n); });
       aniso = gl.getExtension('EXT_texture_filter_anisotropic');
-      tex(0, drawDigits(), gl.REPEAT); tex(1, drawFace()); tex(2, drawCover()); tGau = tex(3, gauge.c);
-      gl.uniform1i(U.tDig, 0); gl.uniform1i(U.tFace, 1); gl.uniform1i(U.tCov, 2); gl.uniform1i(U.tGau, 3);
+      tex(0, drawDigits(), gl.REPEAT); tex(1, drawFace()); tGau = tex(3, gauge.c);
+      gl.uniform1i(U.tDig, 0); gl.uniform1i(U.tFace, 1); gl.uniform1i(U.tGau, 3);
       gl.uniform1fv(U['uDX[0]'], new Float32Array(DX));
       gl.uniform1fv(U['uSX[0]'], new Float32Array(SEP_X));
       return true;
@@ -629,53 +595,13 @@ void main(){
     if (!build()) return null;
 
     var S = {
-      reduce: !!opts.reduce, scroll: 0, scrollS: 0, collapse: false, cov: 0, cam: 0, glow: 0,
-      drums: [], scale: 1, w: 1, h: 1, running: false, visible: true, onFrame: null, lastCam: null,
+      reduce: !!opts.reduce, glow: 0,
+      drums: [], scale: 1, w: 1, h: 1, running: false, visible: true, onFrame: null,
       still: !!opts.reduce, idle: false
     };
     for (var i = 0; i < 7; i++) S.drums.push({ a: 0, v: 0, tg: 0, k: 100, t0: 0 });
 
     var portrait = function () { return canvas.clientWidth / Math.max(1, canvas.clientHeight) < 0.9; };
-    var KF = {
-      land: [
-        { p: 0, t: [-0.1, -0.2, 0], span: 15.6, yaw: 0.10, pit: 0.19, sh: -0.17 },
-        { p: 0.36, t: [-1.0, -0.15, 0], span: 7.6, yaw: 0.50, pit: 0.15, sh: -0.04 },
-        { p: 0.70, t: [-0.6, -0.5, 0], span: 6.4, yaw: -0.40, pit: 0.12, sh: -0.04 },
-        { p: 1, t: [2.5, 0, 0], span: 4.8, yaw: -0.10, pit: 0.08, sh: -0.04 }
-      ],
-      port: [
-        { p: 0, t: [-0.1, -1.0, 0], span: 10.2, yaw: 0.12, pit: 0.17, sh: -0.3 },
-        { p: 0.36, t: [-1.5, -0.1, 0], span: 5.0, yaw: 0.50, pit: 0.15, sh: 0.0 },
-        { p: 0.70, t: [-0.8, -0.4, 0], span: 4.6, yaw: -0.42, pit: 0.12, sh: 0.0 },
-        { p: 1, t: [2.8, 0, 0], span: 3.5, yaw: -0.10, pit: 0.08, sh: 0.0 }
-      ],
-      colLand: { t: [3.0, 0, 0], span: 3.5, yaw: -0.14, pit: 0.06, sh: -0.04 },
-      colPort: { t: [3.0, 0, 0], span: 2.9, yaw: -0.12, pit: 0.06, sh: 0.0 }
-    };
-    var sm = function (a, b, x) { x = Math.min(1, Math.max(0, (x - a) / (b - a))); return x * x * (3 - 2 * x); };
-    function lerpK(a, b, f) {
-      return { t: [0, 1, 2].map(function (i) { return a.t[i] + (b.t[i] - a.t[i]) * f; }), span: a.span + (b.span - a.span) * f, yaw: a.yaw + (b.yaw - a.yaw) * f, pit: a.pit + (b.pit - a.pit) * f, sh: a.sh + (b.sh - a.sh) * f };
-    }
-    function camAt(p) {
-      var K = portrait() ? KF.port : KF.land, i = 0;
-      while (i < K.length - 2 && p > K[i + 1].p) i++;
-      var f = sm(K[i].p, K[i + 1].p, p);
-      return lerpK(K[i], K[i + 1], f);
-    }
-    S.project = function (v) {
-      var c = S.lastCam; if (!c) return null;
-      var asp = S.cssW / S.cssH, dist = c.span / (2 * 0.2493 * asp);
-      var ro = [c.t[0] + dist * Math.sin(c.yaw) * Math.cos(c.pit), c.t[1] + dist * Math.sin(c.pit), c.t[2] + dist * Math.cos(c.yaw) * Math.cos(c.pit)];
-      var fw = norm(sub(c.t, ro)), rt = norm(cross(fw, [0, 1, 0])), up = cross(rt, fw), d = sub(v, ro);
-      var z = dot(d, fw); if (z <= 0.01) return null;
-      var xn = dot(d, rt) / z / (0.2493 * asp), yn = dot(d, up) / z / 0.2493 + c.sh;
-      return { x: (xn + 1) / 2 * S.cssW, y: (1 - yn) / 2 * S.cssH };
-    };
-    function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
-    function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-    function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
-    function norm(a) { var l = Math.sqrt(dot(a, a)); return [a[0] / l, a[1] / l, a[2] / l]; }
-
     function resize() {
       var dpr = Math.min(window.devicePixelRatio || 1, S.idle ? 2 : 1.5);
       S.cssW = canvas.clientWidth || window.innerWidth; S.cssH = canvas.clientHeight || window.innerHeight;
@@ -707,7 +633,7 @@ void main(){
       gl.uniform2f(U.uRes, S.w, S.h); gl.uniform1f(U.uTime, S.reduce ? 3.7 : now / 1000);
       gl.uniform3f(U.uTgt, cc.t[0], cc.t[1], cc.t[2]); gl.uniform1f(U.uSpan, cc.span); gl.uniform1f(U.uYaw, cc.yaw); gl.uniform1f(U.uPitch, cc.pit); gl.uniform1f(U.uShiftY, cc.sh);
       var drift = S.reduce ? 0 : Math.sin(now / 1000 * 0.25) * 0.12;
-      gl.uniform1f(U.uSpot, -0.55 + drift); gl.uniform1f(U.uCover, 0); gl.uniform1f(U.uCollapse, 0); gl.uniform1f(U.uGlow, S.glow); gl.uniform1f(U.uStill, S.reduce ? 1 : 0);
+      gl.uniform1f(U.uSpot, -0.55 + drift); gl.uniform1f(U.uGlow, S.glow); gl.uniform1f(U.uStill, S.reduce ? 1 : 0);
       var A = new Float32Array(7), V = new Float32Array(7);
       for (var i = 0; i < 7; i++) { A[i] = S.drums[i].a; V[i] = S.drums[i].v; }
       gl.uniform1fv(U['uAng[0]'], A); gl.uniform1fv(U['uVel[0]'], V);
@@ -732,7 +658,6 @@ void main(){
       if (!anim && !S.dirty && S.reduce) return;
       S.dirty = false;
       var cc = { t: [cur.tx, cur.ty, 0], span: cur.span, yaw: cur.yaw, pit: cur.pit, sh: shiftOf() };
-      S.lastCam = cc;
       setUniforms(cc, now, false);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       S.frames = (S.frames || 0) + 1;
@@ -788,9 +713,6 @@ void main(){
     // after a lost context comes back: rebuild what lived in it, the gauge picture is still on its own canvas
     S.restore = function () { if (!build()) return false; resize(); return true; };
 
-    S.setScroll = function (p) { S.scroll = p; S.invalidate(); };
-    S.setCollapsed = function (b) { S.collapse = b; S.invalidate(); };
-    
     S.setDigits = function (digits, intro) {
       for (var i = 0; i < 7; i++) {
         var d = S.drums[i];
